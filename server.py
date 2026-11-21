@@ -920,24 +920,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     # -- verbs
     def do_GET(self):
-        self.handle_request()
+        self.serve_request()
 
     def do_HEAD(self):
-        self.handle_request()
+        self.serve_request()
 
     def do_POST(self):
-        self.handle_request()
+        self.serve_request()
 
     def do_PUT(self):
-        self.handle_request()
+        self.serve_request()
 
     def do_PATCH(self):
-        self.handle_request()
+        self.serve_request()
 
     def do_DELETE(self):
-        self.handle_request()
+        self.serve_request()
 
-    def handle_request(self):
+    def serve_request(self):
         self._body_read = False
         path = self.clean_path()
         if path is None:

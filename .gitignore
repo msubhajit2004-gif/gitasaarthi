@@ -18,3 +18,5 @@ videos/
 
 graphify-out/
 .vercel/
+.vercel
+.env*

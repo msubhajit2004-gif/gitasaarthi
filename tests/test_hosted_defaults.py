@@ -34,5 +34,18 @@ class HostedDefaults(unittest.TestCase):
             self.assertIn(must, lines)
 
 
+class VercelRuntimeNames(unittest.TestCase):
+    """Vercel's Python runtime wraps our handler class and defines its own methods on the subclass.
+    A same-named method of ours would be overridden and call itself forever (an infinite loop on every request)."""
+
+    RESERVED = ("handle_request",)
+
+    def test_handler_does_not_define_names_the_vercel_runtime_uses(self):
+        sys.path.insert(0, ROOT)
+        import server
+        for name in self.RESERVED:
+            self.assertNotIn(name, vars(server.Handler), f"{name} collides with the Vercel runtime wrapper")
+
+
 if __name__ == "__main__":
     unittest.main()
