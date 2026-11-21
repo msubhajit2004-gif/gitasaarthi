@@ -183,3 +183,21 @@ test("Ordinary feelings and unmatched text are not asides", () => {
   assert.equal(D.nextTurn(D.createSession(), { text: "I feel burnt out" }, lib).kind, "phase1");
   assert.equal(D.nextTurn(D.createSession(), { text: "hmm" }, lib).kind, "clarify");
 });
+
+
+// "What's my name?" is a question the app can answer from the account, not a feeling to counsel.
+test("asking for your own name is answered from the account, not counselled", () => {
+  for (const q of ["whats my name?", "what's my name", "What is my name?", "do you know my name?", "what do you call me"]) {
+    const t = D.nextTurn(D.createSession(), { text: q }, lib);
+    assert.equal(t.kind, "aside", q);
+    assert.equal(t.action, "say-name", q);
+    assert.match(t.payload.message, /\{name\}/, q);
+  }
+});
+
+test("statements and feelings that merely contain the word name are not intercepted", () => {
+  for (const q of ["my name is Asha", "I feel lost and I do not know who I am", "I hate my name and feel worthless", "who am I?"]) {
+    const t = D.nextTurn(D.createSession(), { text: q }, lib);
+    assert.notEqual(t.action, "say-name", q);
+  }
+});

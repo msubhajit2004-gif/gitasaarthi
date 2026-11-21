@@ -704,8 +704,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function renderAside(d, action) {
-    const link = action === "open-settings" ? `<p><button type="button" class="acct-link" data-open="nav-settings-btn">Open Settings</button></p>` : "";
-    const { row } = krishnaCard(`<div class="krishna-ack-text">${escapeHtml(d.message)}</div>${link}`, "Note");
+    let message = d.message;
+    if (action === "say-name") {   // the engine cannot know it; the account page shows it
+      const el = document.getElementById("acct-name"), name = el ? el.textContent.trim() : "";
+      message = name ? message.replace("{name}", name) : "I do not have a name for you yet. You can set one in Settings, under Account.";
+    }
+    const link = action === "open-settings" || action === "say-name" ? `<p><button type="button" class="acct-link" data-open="nav-settings-btn">Open Settings</button></p>` : "";
+    const { row } = krishnaCard(`<div class="krishna-ack-text">${escapeHtml(message)}</div>${link}`, "Note");
     row.querySelectorAll("[data-open]").forEach(b => b.addEventListener("click", () => {
       const t = document.getElementById(b.dataset.open); if (t) t.click();
     }));

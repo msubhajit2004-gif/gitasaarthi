@@ -196,6 +196,12 @@ try {
     await page.waitForFunction(() => Number(document.getElementById("journal-badge")?.textContent) >= 1, null, { timeout: 5000 });
   });
 
+  await step("asking 'whats my name?' is answered from the account", async () => {
+    await page.fill(".chat-input-textarea", "whats my name?");
+    await page.keyboard.press("Enter");
+    await page.waitForFunction((n) => document.body.innerText.includes(`Your name on this account is ${n}`), A.name, { timeout: 10000 });
+  });
+
   await step("change password from Settings > Account", async () => {
     await page.click("#nav-settings-btn");
     await page.waitForSelector("#settings-modal.open");

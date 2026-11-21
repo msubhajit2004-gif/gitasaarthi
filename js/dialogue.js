@@ -198,6 +198,9 @@
   const ASIDES = [
     { re: /\b(change|update|set|rename)\b.*\b(my )?name\b|\brename (me|myself)\b/, action: "open-settings",
       message: "You can change your name in Settings, under Account. Whenever you want to go on, tell me what is on your mind." },
+    // answered by the page from the account: it fills in {name}
+    { re: /\b(what is|whats|what s) my name\b|\bdo you (know|remember) my name\b|\bwhat do you call me\b/, action: "say-name",
+      message: "Your name on this account is {name}. You can change it in Settings, under Account." },
     { re: /\b(sign|log) ?(me )?(out|off)\b|\blogout\b/,
       message: "Sign out is in the footer of your Practice page. I am here when you come back." },
     { re: /\bdelete (my )?(account|data)\b/, action: "open-settings",
