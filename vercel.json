@@ -11,10 +11,10 @@
       "excludeFiles": "{tests/**,_archive/**,docs/**,node_modules/**,scripts/**,data/**,videos/**,screenshots/**,.backup-before-unslop/**,**/__pycache__/**,package.json,package-lock.json}"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "/api/index"
+      "src": "/(.*)",
+      "dest": "/api/index"
     }
   ]
 }

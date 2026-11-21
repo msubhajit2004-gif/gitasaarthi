@@ -74,8 +74,30 @@ class ContentBasedEtag(unittest.TestCase):
             with open(p, "wb") as f:
                 f.write(b"var a = 2;")          # same length
             os.utime(p, ns=(st.st_atime_ns, st.st_mtime_ns))   # a deploy can leave every mtime identical
+            server.clear_etag_cache()                # a new deployment is a new process with an empty cache
             two = server.file_etag(p, os.stat(p))
             self.assertNotEqual(one, two)
+
+    def test_the_file_is_read_once_while_it_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "site.css")
+            with open(p, "wb") as f:
+                f.write(b"body{}")
+            server.clear_etag_cache()
+            with mock.patch("builtins.open", wraps=open) as opened:
+                server.file_etag(p, os.stat(p)); server.file_etag(p, os.stat(p)); server.file_etag(p, os.stat(p))
+            self.assertEqual(sum(1 for c in opened.call_args_list if c.args and c.args[0] == p), 1)
+
+    def test_a_changed_file_is_read_again(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "site.css")
+            with open(p, "wb") as f:
+                f.write(b"body{}")
+            server.clear_etag_cache()
+            one = server.file_etag(p, os.stat(p))
+            with open(p, "wb") as f:
+                f.write(b"body{color:red}")           # different size, so a different cache key
+            self.assertNotEqual(one, server.file_etag(p, os.stat(p)))
 
     def test_same_content_gives_the_same_etag(self):
         with tempfile.TemporaryDirectory() as d:

@@ -369,14 +369,30 @@ def normalize_throttle_ip(ip):
     return str(addr)
 
 
+_ETAGS = {}
+
+
+def clear_etag_cache():
+    _ETAGS.clear()
+
+
 def file_etag(path, st):
-    """A cache validator from the file's content. Not its timestamp: a deploy can give every file the same
-    modification time, which would let a same-size edit be answered with 'not modified'."""
-    h = hashlib.sha1()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return '"' + h.hexdigest()[:20] + '"'
+    """A cache validator from the file's content. Not its timestamp alone: a deploy can give every file the
+    same modification time, which would let a same-size edit be answered with 'not modified'. The digest is
+    remembered per (path, mtime, size, inode), so each file is read once, not on every request; a new
+    deployment is a new process and starts with an empty cache."""
+    key = (path, st.st_mtime_ns, st.st_size, getattr(st, "st_ino", 0))
+    tag = _ETAGS.get(key)
+    if tag is None:
+        h = hashlib.sha1()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        tag = '"' + h.hexdigest()[:20] + '"'
+        if len(_ETAGS) >= 1024:
+            _ETAGS.clear()
+        _ETAGS[key] = tag
+    return tag
 
 
 class Throttle:
