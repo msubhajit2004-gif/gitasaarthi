@@ -52,7 +52,7 @@ for _stream in (sys.stdout, sys.stderr):
 PORT = int(os.environ.get("PORT", 8000))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB = os.environ.get("GITASAARTHI_DB", os.path.join(DIRECTORY, "data", "gitasaarthi.db"))
-SECURE_COOKIE = os.environ.get("GITASAARTHI_SECURE_COOKIE") == "1"   # set to 1 when served over https
+SECURE_COOKIE = os.environ.get("GITASAARTHI_SECURE_COOKIE") == "1" or bool(os.environ.get("VERCEL"))   # set to 1 when served over https
 DEFAULT_HOST = os.environ.get("GITASAARTHI_HOST", "127.0.0.1")        # loopback unless you opt in to more
 TRUST_PROXY = os.environ.get("GITASAARTHI_TRUST_PROXY") == "1"        # believe X-Forwarded-For (behind a proxy only)
 
@@ -138,6 +138,12 @@ CREATE TABLE IF NOT EXISTS events (
 );
 CREATE INDEX IF NOT EXISTS events_type_time ON events(type, created_at);
 CREATE INDEX IF NOT EXISTS events_user ON events(user_id);
+CREATE TABLE IF NOT EXISTS throttle_events (
+  bucket TEXT NOT NULL,
+  key TEXT NOT NULL,
+  ts REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS throttle_events_lookup ON throttle_events(bucket, key, ts);
 """
 
 
@@ -177,15 +183,67 @@ def strict_loads(text):
     return json.loads(text, parse_constant=_reject_constant)
 
 
-def pick_client_ip(peer, forwarded, trust):
-    # Rightmost entry: the one our own proxy appended. Earlier entries are client-supplied and can be spoofed.
-    if trust and forwarded:
-        last = forwarded.split(",")[-1].strip()
-        try:
-            return str(ipaddress.ip_address(last))
-        except ValueError:
-            pass
+def _valid_ip(value):
+    try:
+        return str(ipaddress.ip_address((value or "").strip()))
+    except ValueError:
+        return None
+
+
+def pick_client_ip(peer, forwarded, trust, real_ip=None, vercel_forwarded=None, vercel=None):
+    """The address throttles and audit lines use.
+    On Vercel (env VERCEL, read per call) every request arrives from the platform proxy, which overwrites
+    the client-supplied headers: x-real-ip, else the first x-vercel-forwarded-for entry, else the rightmost
+    x-forwarded-for. Elsewhere x-forwarded-for counts only with GITASAARTHI_TRUST_PROXY=1, rightmost entry
+    (the one our own proxy appended; earlier entries are client-supplied and can be spoofed)."""
+    if vercel is None:
+        vercel = bool(os.environ.get("VERCEL"))
+    candidates = []
+    if vercel:
+        candidates.append(real_ip)
+        if vercel_forwarded:
+            candidates.append(vercel_forwarded.split(",")[0])
+    if (vercel or trust) and forwarded:
+        candidates.append(forwarded.split(",")[-1])
+    for c in candidates:
+        ip = _valid_ip(c)
+        if ip:
+            return ip
     return peer
+
+
+ORIGIN_ENV = ("GITASAARTHI_PUBLIC_ORIGIN", "GITASAARTHI_ALLOWED_ORIGINS")   # comma-separated exact origins
+
+
+def _normalize_origin(value):
+    """'scheme://host[:port]' in lower case, or None when value is not an http(s) origin."""
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        parts = urlsplit(value.strip())
+    except ValueError:
+        return None
+    if parts.scheme.lower() not in ("http", "https") or not parts.netloc or parts.path not in ("", "/") \
+            or parts.query or parts.fragment or "@" in parts.netloc:
+        return None
+    return f"{parts.scheme.lower()}://{parts.netloc.lower()}"
+
+
+def allowed_origins():
+    """Origins accepted for writes besides the request's own Host (read per call): the public origin(s)
+    from ORIGIN_ENV, plus https://$VERCEL_URL, the deployment URL Vercel sets on every build."""
+    out = set()
+    for name in ORIGIN_ENV:
+        for item in os.environ.get(name, "").split(","):
+            o = _normalize_origin(item)
+            if o:
+                out.add(o)
+    vurl = os.environ.get("VERCEL_URL", "").strip()
+    if vurl:
+        o = _normalize_origin("https://" + vurl)
+        if o:
+            out.add(o)
+    return out
 
 
 def bind_warning(host, secure_cookie):
@@ -196,6 +254,11 @@ def bind_warning(host, secure_cookie):
 
 
 def connect(db_path):
+    if os.environ.get("TURSO_DATABASE_URL"):     # hosted: Turso over HTTP; db_path is not used
+        import db_turso
+        conn = db_turso.TursoConnection(os.environ["TURSO_DATABASE_URL"], os.environ.get("TURSO_AUTH_TOKEN", ""))
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
     conn = sqlite3.connect(db_path, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
@@ -203,7 +266,8 @@ def connect(db_path):
 
 
 def init_db(db_path):
-    os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
+    if not os.environ.get("TURSO_DATABASE_URL"):   # a hosted database needs no local folder, and Vercel's disk is read-only
+        os.makedirs(os.path.dirname(os.path.abspath(db_path)), exist_ok=True)
     conn = connect(db_path)
     try:
         conn.execute("PRAGMA journal_mode = WAL")
@@ -281,13 +345,74 @@ def practice_streak(days):
 
 class Throttle:
     """Attempts per account and per IP inside a sliding window. An attempt is reserved *before* the
-    expensive hash so parallel requests cannot all slip under the limit; success releases it."""
+    expensive hash so parallel requests cannot all slip under the limit; success releases it.
+
+    Throttle(db_path) keeps the attempts in the throttle_events table, so they survive a restart or a
+    serverless cold start and are shared by every instance on the same database. Throttle() with no
+    database keeps them in memory (one process only)."""
 
     MAX_KEYS = 5000
+    KEEP = 24 * 3600          # global prune: rows older than this go, whatever their window
+    PRUNE_EVERY = 10 * 60     # at most one global prune per instance per this many seconds
 
-    def __init__(self):
+    def __init__(self, db_path=None):
+        if db_path is None and os.environ.get("VERCEL"):
+            raise RuntimeError("On Vercel the throttle must live in the database: use Throttle(db_path).")
         self.lock = threading.Lock()
         self.fails = {}
+        self.db_path = db_path
+        self._last_prune = 0.0
+
+    @staticmethod
+    def _split(k):
+        bucket, _, key = k.partition(":")
+        return bucket, key
+
+    def _db(self, work):
+        """Run work(conn) in one transaction that starts with a write, so on SQLite it holds the write
+        lock and on Turso it runs on one stream inside BEGIN ... COMMIT."""
+        conn = connect(self.db_path)
+        try:
+            out = work(conn)
+            conn.commit()
+            return out
+        except BaseException:
+            try:
+                conn.rollback()
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
+
+    def _db_reserve(self, keys_limits, window):
+        def work(conn):
+            t = time.time()
+            for k, _ in keys_limits:     # per-key prune first: it opens the write transaction
+                conn.execute("DELETE FROM throttle_events WHERE bucket = ? AND key = ? AND ts <= ?",
+                             self._split(k) + (t - window,))
+            if t - self._last_prune >= self.PRUNE_EVERY:
+                conn.execute("DELETE FROM throttle_events WHERE ts <= ?", (t - self.KEEP,))
+                self._last_prune = t
+            for k, limit in keys_limits:
+                n = conn.execute("SELECT COUNT(*) FROM throttle_events WHERE bucket = ? AND key = ? AND ts > ?",
+                                 self._split(k) + (t - window,)).fetchone()[0]
+                if n >= limit:
+                    return False
+            for k, _ in keys_limits:
+                conn.execute("INSERT INTO throttle_events (bucket, key, ts) VALUES (?, ?, ?)", self._split(k) + (t,))
+            return True
+        with self.lock:
+            return self._db(work)
+
+    def _db_release(self, email, ip):
+        def work(conn):
+            conn.execute("DELETE FROM throttle_events WHERE bucket = ? AND key = ?",
+                         self._split(self._key("acct:", email)))
+            conn.execute("DELETE FROM throttle_events WHERE rowid = (SELECT rowid FROM throttle_events "
+                         "WHERE bucket = ? AND key = ? ORDER BY ts DESC LIMIT 1)", self._split(self._key("ip:", ip)))
+        with self.lock:
+            self._db(work)
 
     @staticmethod
     def _key(prefix, value):
@@ -313,6 +438,8 @@ class Throttle:
                 del self.fails[k]
 
     def _reserve(self, keys_limits, window):
+        if self.db_path is not None:
+            return self._db_reserve(keys_limits, window)
         with self.lock:
             if any(len(self._recent(k, window)) >= limit for k, limit in keys_limits):
                 return False
@@ -327,6 +454,8 @@ class Throttle:
                               (self._key("ip:", ip), LOGIN_MAX_PER_IP)], LOGIN_WINDOW)
 
     def release(self, email, ip):
+        if self.db_path is not None:
+            return self._db_release(email, ip)
         with self.lock:
             self.fails.pop(self._key("acct:", email), None)
             k = self._key("ip:", ip)
@@ -394,8 +523,50 @@ def _restrict_windows(path):
         pass   # best effort; never block startup
 
 
+HOSTED_REQUIRED = ("GITASAARTHI_MASTER_KEY", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN", "GITASAARTHI_PUBLIC_ORIGIN")
+
+
+def _env_master_key():
+    """The key from GITASAARTHI_MASTER_KEY (base64 of exactly 32 bytes), or None when it is not set.
+    ValueError when it is set but wrong; the message never contains the value."""
+    raw = os.environ.get("GITASAARTHI_MASTER_KEY")
+    if raw is None:
+        return None
+    try:
+        key = base64.b64decode(raw.strip(), validate=True)
+    except (ValueError, TypeError):
+        raise ValueError("GITASAARTHI_MASTER_KEY is not valid base64.") from None
+    if len(key) != 32:
+        raise ValueError(f"GITASAARTHI_MASTER_KEY must decode to exactly 32 bytes (got {len(key)}).")
+    return key
+
+
+def require_runtime_env():
+    """Startup check. On Vercel (env VERCEL set) every hosted setting must be present, and a key file is
+    never generated there. Anywhere, a GITASAARTHI_MASTER_KEY that is set must be valid. SystemExit otherwise."""
+    if os.environ.get("VERCEL"):
+        missing = [k for k in HOSTED_REQUIRED if not os.environ.get(k, "").strip()]
+        if missing:
+            raise SystemExit("GitaSaarthi will not start on Vercel without these environment variables: "
+                             + ", ".join(missing) + ".")
+    try:
+        _env_master_key()
+    except ValueError as e:
+        raise SystemExit(f"GitaSaarthi will not start: {e} Generate one with: python -c \"import os,base64;"
+                         "print(base64.b64encode(os.urandom(32)).decode())\"") from None
+
+
 def load_master_key():
-    """32 random bytes in data/secret.key (0600), created on first use. Back it up with the database."""
+    """GITASAARTHI_MASTER_KEY when set (hosted). Otherwise 32 random bytes in data/secret.key (0600), created
+    on first use; back it up with the database. On Vercel there is no key file: missing env is an error."""
+    try:
+        key = _env_master_key()
+    except ValueError as e:
+        raise RuntimeError(str(e)) from None
+    if key is not None:
+        return key
+    if os.environ.get("VERCEL"):
+        raise RuntimeError("GITASAARTHI_MASTER_KEY is required on Vercel; no key file is created there.")
     path = secret_key_path()
     with _MASTER_LOCK:
         if path in _MASTER:
@@ -565,7 +736,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         return self.server.db_path
 
     def client_ip(self):
-        return pick_client_ip(self.client_address[0], self.headers.get("X-Forwarded-For"), TRUST_PROXY)
+        return pick_client_ip(self.client_address[0], self.headers.get("X-Forwarded-For"), TRUST_PROXY,
+                              real_ip=self.headers.get("X-Real-IP"),
+                              vercel_forwarded=self.headers.get("X-Vercel-Forwarded-For"))
 
     def audit(self, action, user_id=None, outcome="ok", detail=""):
         audit(action, user_id, outcome, detail, ip=self.client_ip())
@@ -765,6 +938,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.handle_request()
 
     def handle_request(self):
+        self._body_read = False
         path = self.clean_path()
         if path is None:
             return self.not_found()
@@ -825,28 +999,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
             raise ApiError(400, "The request was not valid.")
         length = int(raw_len)
         if length > max_body:
-            # Read and drop the body (up to a cap) before answering. Closing while the client is still
-            # sending makes it see a reset connection instead of the 413.
-            # Only for modest overshoots; a huge declared length is abusive and gets the answer straight away,
-            # and a client that stops sending is given up on after one second.
-            if length <= 2 * 1024 * 1024:
-                old_timeout = self.connection.gettimeout()
-                try:
-                    self.connection.settimeout(1.0)
-                    left = length
-                    while left > 0:
-                        chunk = self.rfile.read(min(65536, left))
-                        if not chunk:
-                            break
-                        left -= len(chunk)
-                except OSError:
-                    pass
-                finally:
-                    try:
-                        self.connection.settimeout(old_timeout)
-                    except OSError:
-                        pass
+            self.drain_body()
             raise ApiError(413, "That is too large to save.")
+        self._body_read = True
         raw = self.rfile.read(length) if length else b""
         if not raw:
             return {}
@@ -858,11 +1013,43 @@ class Handler(http.server.BaseHTTPRequestHandler):
             raise ApiError(400, "The request was not valid JSON.")
         return data
 
+    def drain_body(self):
+        """Read and drop a request body nobody read, before an error answer. Closing while the client is
+        still sending makes it see a reset connection instead of the 413/403/401.
+        Only for modest bodies; a huge declared length is abusive and gets the answer straight away,
+        and a client that stops sending is given up on after one second."""
+        if getattr(self, "_body_read", False):
+            return
+        self._body_read = True
+        raw_len = (self.headers.get("Content-Length") or "0").strip()
+        if not raw_len.isascii() or not raw_len.isdigit() or len(raw_len) > 12:
+            return
+        length = int(raw_len)
+        if not 0 < length <= 2 * 1024 * 1024:
+            return
+        old_timeout = self.connection.gettimeout()
+        try:
+            self.connection.settimeout(1.0)
+            left = length
+            while left > 0:
+                chunk = self.rfile.read(min(65536, left))
+                if not chunk:
+                    break
+                left -= len(chunk)
+        except OSError:
+            pass
+        finally:
+            try:
+                self.connection.settimeout(old_timeout)
+            except OSError:
+                pass
+
     def check_csrf(self):
         ctype = (self.headers.get("Content-Type") or "").split(";")[0].strip().lower()
         origin = self.headers.get("Origin")
         host = self.headers.get("Host")
-        if ctype != "application/json" or not origin or not host or urlsplit(origin).netloc != host:
+        same_host = bool(origin and host) and urlsplit(origin).netloc == host
+        if ctype != "application/json" or not (same_host or _normalize_origin(origin) in allowed_origins()):
             self.audit("csrf", None, "denied", f"origin={origin!r}")
             raise ApiError(403, "This request was refused.")
 
@@ -920,6 +1107,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self.api_admin(conn, user, path)
             raise ApiError(404, "Not found.")
         except ApiError as e:
+            self.drain_body()
             return self.send_json(e.status, {"error": e.message, "code": e.code})
 
     def api_signup(self, conn):
@@ -1279,13 +1467,14 @@ class GitaServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def build_server(port, db_path=None, host=None):
+    require_runtime_env()
     db_path = db_path or DEFAULT_DB
     host = DEFAULT_HOST if host is None else host
     init_db(db_path)
     purge_expired_sessions(db_path)
     httpd = GitaServer((host, port), Handler)
     httpd.db_path = db_path
-    httpd.throttle = Throttle()
+    httpd.throttle = Throttle(db_path)
     return httpd
 
 

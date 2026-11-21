@@ -1,0 +1,29 @@
+# Never uploaded to Vercel. Mirrors .gitignore, plus everything the function does not need at runtime.
+# Keep the HTML, css/, js/, images/, audio/ and *.py: the Python function serves them from disk.
+data/
+venv/
+__pycache__/
+.playwright-mcp/
+_archive/
+*.db
+*.db-wal
+*.db-shm
+node_modules/
+secret.key
+.backup-before-unslop/
+.superpowers/
+.gstack/
+.env*
+.vercel/
+screenshots/
+videos/
+tests/
+docs/
+scripts/
+graphify-out/
+.git/
+package.json
+package-lock.json
+
+.claude/
+.gitattributes

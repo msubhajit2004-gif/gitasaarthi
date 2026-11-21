@@ -1,0 +1,38 @@
+"""Defaults that must differ between a developer's laptop and a hosted deployment."""
+import os
+import subprocess
+import sys
+import unittest
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def server_flag(env_extra):
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("VERCEL", "GITASAARTHI_", "TURSO_"))}
+    env.update(env_extra)
+    out = subprocess.run(
+        [sys.executable, "-c", "import server; print(server.SECURE_COOKIE)"],
+        cwd=ROOT, env=env, capture_output=True, text=True, timeout=30,
+    )
+    return out.stdout.strip().splitlines()[-1] if out.stdout.strip() else out.stderr[-300:]
+
+
+class HostedDefaults(unittest.TestCase):
+    def test_session_cookie_is_secure_on_vercel_without_extra_setting(self):
+        self.assertEqual(server_flag({"VERCEL": "1"}), "True")
+
+    def test_session_cookie_is_not_secure_on_a_plain_laptop(self):
+        self.assertEqual(server_flag({}), "False")
+
+    def test_explicit_secure_flag_still_works_locally(self):
+        self.assertEqual(server_flag({"GITASAARTHI_SECURE_COOKIE": "1"}), "True")
+
+    def test_vercel_ignore_keeps_local_settings_and_data_out(self):
+        with open(os.path.join(ROOT, ".vercelignore"), encoding="utf-8") as f:
+            lines = {ln.strip() for ln in f if ln.strip() and not ln.startswith("#")}
+        for must in (".claude/", "data/", "_archive/", "node_modules/", "secret.key"):
+            self.assertIn(must, lines)
+
+
+if __name__ == "__main__":
+    unittest.main()

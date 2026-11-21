@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "",
+  "regions": [
+    "iad1"
+  ],
+  "functions": {
+    "api/index.py": {
+      "excludeFiles": "{tests/**,_archive/**,docs/**,node_modules/**,scripts/**,data/**,videos/**,screenshots/**,.backup-before-unslop/**,**/__pycache__/**,package.json,package-lock.json}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ]
+}

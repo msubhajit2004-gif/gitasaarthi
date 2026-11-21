@@ -14,6 +14,46 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import server  # noqa: E402
 
+# Opt-in: GITASAARTHI_TEST_BACKEND=turso-stub runs this whole suite against a local Turso stub
+# (tests/test_turso_adapter.py) instead of SQLite files. No network either way.
+_TURSO = {}
+
+
+def setUpModule():
+    # Either way, never follow TURSO_* from the caller's shell (it may point at the live database):
+    # the default run uses SQLite temp files, the stub run points them at the local stub.
+    _TURSO["old"] = {k: os.environ.pop(k, None) for k in ("TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN")}
+    if os.environ.get("GITASAARTHI_TEST_BACKEND") != "turso-stub":
+        return
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from test_turso_adapter import start_stub
+    _TURSO["stub"] = stub = start_stub()
+    os.environ["TURSO_DATABASE_URL"], os.environ["TURSO_AUTH_TOKEN"] = stub.url, stub.token
+
+
+def reset_stub_throttle():
+    """Test isolation for the turso stub only: every class shares its one store and every request comes
+    from 127.0.0.1, so persisted signup/login counts would otherwise add up across classes. SQLite runs
+    give each class its own database file, so nothing to do there."""
+    if "stub" not in _TURSO:
+        return
+    conn = server.connect("")
+    try:
+        conn.execute("DELETE FROM throttle_events")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def tearDownModule():
+    for k, v in _TURSO.pop("old", {}).items():
+        if v is None:
+            os.environ.pop(k, None)
+        else:
+            os.environ[k] = v
+    if "stub" in _TURSO:
+        _TURSO.pop("stub").stop()
+
 
 class Client:
     def __init__(self, port):
@@ -53,6 +93,7 @@ class ServerTest(unittest.TestCase):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.db = os.path.join(cls.tmp.name, "test.db")
         cls.httpd = server.build_server(0, cls.db)
+        reset_stub_throttle()
         cls.port = cls.httpd.server_address[1]
         cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.thread.start()
@@ -90,6 +131,14 @@ class ServerTest(unittest.TestCase):
         for p in ("/login.html", "/safe-harbor.html", "/css/site.css", "/js/site.js"):
             st, _, _ = self.client().req("GET", p)
             self.assertEqual(st, 200, p)
+
+    def test_csrf_refusal_with_a_body_is_a_clean_403(self):
+        """The refusal must read the body first: closing with it unread resets the connection on Windows,
+        so the client sees an abort instead of the 403."""
+        body = json.dumps({"email": "x@example.com", "password": "p" * 400_000})
+        for _ in range(5):
+            st, _, _ = self.client().req("POST", "/api/login", body, json_body=False, origin=False)
+            self.assertEqual(st, 403)
 
     def test_csp_script_src_has_no_unsafe_inline(self):
         c = http.client.HTTPConnection("127.0.0.1", self.client().port, timeout=10)
@@ -706,6 +755,7 @@ class GeminiTest(unittest.TestCase):
         os.environ["GITASAARTHI_SECRET_KEY_FILE"] = os.path.join(cls.tmp.name, "secret.key")
         cls.db = os.path.join(cls.tmp.name, "g.db")
         cls.httpd = server.build_server(0, cls.db)
+        reset_stub_throttle()
         cls.port = cls.httpd.server_address[1]
         threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
 
@@ -910,6 +960,466 @@ class GeminiTest(unittest.TestCase):
         self.assertEqual((st, b["code"]), (429, "throttled"))
         other = self.with_key("g16@example.com")
         self.assertEqual(other.req("POST", "/api/gemini/generate", payload)[0], 200)
+
+
+HOSTED_VARS = ("VERCEL", "GITASAARTHI_MASTER_KEY", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN",
+               "GITASAARTHI_PUBLIC_ORIGIN", "GITASAARTHI_SECRET_KEY_FILE")
+
+
+class MasterKeyEnvTest(unittest.TestCase):
+    """GITASAARTHI_MASTER_KEY (base64 of 32 bytes) wins over the key file; hosted runs refuse without it."""
+
+    def setUp(self):
+        import base64
+        from unittest import mock
+        self.b64 = base64.b64encode
+        self.tmp = tempfile.TemporaryDirectory()
+        self.key_file = os.path.join(self.tmp.name, "secret.key")
+        saved = {k: os.environ[k] for k in HOSTED_VARS if k in os.environ}
+        self.env = mock.patch.dict(os.environ, saved, clear=False)
+        self.env.start()
+        for k in HOSTED_VARS:
+            os.environ.pop(k, None)
+        os.environ["GITASAARTHI_SECRET_KEY_FILE"] = self.key_file
+        self.saved_master = dict(server._MASTER)
+        server._MASTER.clear()
+
+    def tearDown(self):
+        self.env.stop()
+        server._MASTER.clear()
+        server._MASTER.update(self.saved_master)
+        self.tmp.cleanup()
+
+    def hosted(self, **extra):
+        os.environ.update({"VERCEL": "1", "TURSO_DATABASE_URL": "libsql://x.turso.io", "TURSO_AUTH_TOKEN": "t",
+                           "GITASAARTHI_PUBLIC_ORIGIN": "https://gs.example"})
+        os.environ.update(extra)
+
+    def test_key_from_env_decrypts_and_wins_over_file(self):
+        with open(self.key_file, "wb") as f:
+            f.write(os.urandom(32))
+        master = os.urandom(32)
+        blob = server.encrypt_secret("gemini key", master)
+        os.environ["GITASAARTHI_MASTER_KEY"] = self.b64(master).decode()
+        self.assertEqual(server.load_master_key(), master)
+        self.assertEqual(server.decrypt_secret(blob, server.load_master_key()), "gemini key")
+        server.require_runtime_env()   # valid: no error
+
+    def test_env_key_is_not_written_to_disk(self):
+        os.environ["GITASAARTHI_MASTER_KEY"] = self.b64(os.urandom(32)).decode()
+        server.load_master_key()
+        self.assertFalse(os.path.exists(self.key_file))
+
+    def test_bad_env_key_is_a_clear_startup_error(self):
+        for bad in (self.b64(os.urandom(31)).decode(), self.b64(os.urandom(33)).decode(), "not base64 !!!", " "):
+            os.environ["GITASAARTHI_MASTER_KEY"] = bad
+            with self.assertRaises(SystemExit) as cm:
+                server.require_runtime_env()
+            msg = str(cm.exception.code)
+            self.assertIn("GITASAARTHI_MASTER_KEY", msg)
+            if bad.strip():
+                self.assertNotIn(bad, msg)
+            with self.assertRaises(RuntimeError):
+                server.load_master_key()
+            self.assertFalse(os.path.exists(self.key_file))
+
+    def test_vercel_without_key_refuses_and_never_creates_a_key_file(self):
+        self.hosted()
+        with self.assertRaises(SystemExit) as cm:
+            server.require_runtime_env()
+        self.assertIn("GITASAARTHI_MASTER_KEY", str(cm.exception.code))
+        with self.assertRaises(RuntimeError):
+            server.load_master_key()
+        self.assertFalse(os.path.exists(self.key_file))
+        with self.assertRaises(SystemExit):
+            server.build_server(0, os.path.join(self.tmp.name, "v.db"))
+
+    def test_vercel_requires_turso_and_public_origin(self):
+        for missing in ("TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN", "GITASAARTHI_PUBLIC_ORIGIN"):
+            self.hosted(GITASAARTHI_MASTER_KEY=self.b64(os.urandom(32)).decode())
+            os.environ.pop(missing)
+            with self.assertRaises(SystemExit) as cm:
+                server.require_runtime_env()
+            self.assertIn(missing, str(cm.exception.code))
+
+    def test_vercel_refuses_in_memory_throttle(self):
+        self.hosted()
+        with self.assertRaises(RuntimeError):
+            server.Throttle()
+        self.assertEqual(server.Throttle(os.path.join(self.tmp.name, "v.db")).db_path, os.path.join(self.tmp.name, "v.db"))
+
+    def test_vercel_with_everything_set_starts(self):
+        master = os.urandom(32)
+        self.hosted(GITASAARTHI_MASTER_KEY=self.b64(master).decode())
+        server.require_runtime_env()
+        self.assertEqual(server.load_master_key(), master)
+
+    def test_local_without_env_still_uses_key_file(self):
+        k = server.load_master_key()
+        self.assertEqual(len(k), 32)
+        self.assertTrue(os.path.exists(self.key_file))
+        server.require_runtime_env()
+
+
+class PersistentThrottleTest(unittest.TestCase):
+    """Throttle state lives in throttle_events, so a cold start (a new server on the same DB) keeps it."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.db = os.path.join(self.tmp.name, "t.db")
+        server.init_db(self.db)
+        self.tag = os.urandom(4).hex()      # unique keys: the turso stub shares one store across tests
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def rows(self, sql, params=()):
+        conn = server.connect(self.db)
+        try:
+            return conn.execute(sql, params).fetchall()
+        finally:
+            conn.close()
+
+    def write(self, sql, params=()):
+        conn = server.connect(self.db)
+        try:
+            conn.execute(sql, params)
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_schema_has_table_and_index(self):
+        names = {r[0] for r in self.rows("SELECT name FROM sqlite_master WHERE name LIKE 'throttle%'")}
+        self.assertIn("throttle_events", names)
+        self.assertIn("throttle_events_lookup", names)
+        server.init_db(self.db)     # idempotent
+
+    def test_login_throttle_survives_a_new_instance(self):
+        email, ip = f"cold-{self.tag}@x.co", f"10.{self.tag}"
+        t = server.Throttle(self.db)
+        for _ in range(server.LOGIN_MAX_PER_ACCOUNT):
+            self.assertTrue(t.reserve(email, ip))
+        self.assertFalse(t.reserve(email, ip))
+        t2 = server.Throttle(self.db)                     # cold start
+        self.assertFalse(t2.reserve(email, ip))
+        t2.release(email, ip)                              # success clears the account bucket
+        self.assertTrue(server.Throttle(self.db).reserve(email, ip))
+
+    def test_release_drops_one_ip_attempt_and_all_account_attempts(self):
+        email, ip = f"rel-{self.tag}@x.co", f"11.{self.tag}"
+        t = server.Throttle(self.db)
+        for _ in range(3):
+            t.reserve(email, ip)
+        t.release(email, ip)
+        acct = self.rows("SELECT COUNT(*) FROM throttle_events WHERE bucket = 'acct' AND key = ?", (email,))[0][0]
+        per_ip = self.rows("SELECT COUNT(*) FROM throttle_events WHERE bucket = 'ip' AND key = ?", (ip,))[0][0]
+        self.assertEqual((acct, per_ip), (0, 2))
+
+    def test_ip_limit_and_signup_limit_persist(self):
+        ip = f"12.{self.tag}"
+        t = server.Throttle(self.db)
+        for i in range(server.LOGIN_MAX_PER_IP):
+            self.assertTrue(t.reserve(f"u{i}-{self.tag}@x.co", ip), i)
+        self.assertFalse(server.Throttle(self.db).reserve(f"new-{self.tag}@x.co", ip))
+        sip = f"13.{self.tag}"
+        for _ in range(server.SIGNUP_MAX_PER_IP):
+            self.assertTrue(t.reserve_signup(sip))
+        self.assertFalse(server.Throttle(self.db).reserve_signup(sip))
+        self.assertTrue(server.Throttle(self.db).reserve_signup(f"14.{self.tag}"))
+
+    def test_gemini_rate_persists(self):
+        key = f"gem:{self.tag}"
+        t = server.Throttle(self.db)
+        for _ in range(server.GEMINI_RATE):
+            self.assertTrue(t._reserve([(key, server.GEMINI_RATE)], 60))
+        self.assertFalse(server.Throttle(self.db)._reserve([(key, server.GEMINI_RATE)], 60))
+
+    def test_key_is_truncated(self):
+        long_email = self.tag + "x" * 1000
+        server.Throttle(self.db).reserve(long_email, "1.1.1.1")
+        got = self.rows("SELECT key FROM throttle_events WHERE bucket = 'acct' AND key LIKE ?", (self.tag + "%",))
+        self.assertEqual([len(r[0]) for r in got], [254])
+
+    def test_old_rows_are_pruned_per_key_and_globally(self):
+        import time as _t
+        email = f"old-{self.tag}@x.co"
+        stale = _t.time() - server.LOGIN_WINDOW - 5
+        for _ in range(server.LOGIN_MAX_PER_ACCOUNT):
+            self.write("INSERT INTO throttle_events (bucket, key, ts) VALUES ('acct', ?, ?)", (email, stale))
+        self.write("INSERT INTO throttle_events (bucket, key, ts) VALUES ('other', ?, ?)",
+                   (self.tag, _t.time() - 25 * 3600))
+        t = server.Throttle(self.db)
+        self.assertTrue(t.reserve(email, f"15.{self.tag}"))     # stale attempts do not count
+        n = self.rows("SELECT COUNT(*) FROM throttle_events WHERE bucket = 'acct' AND key = ?", (email,))[0][0]
+        self.assertEqual(n, 1)
+        self.assertEqual(self.rows("SELECT COUNT(*) FROM throttle_events WHERE bucket = 'other' AND key = ?",
+                                   (self.tag,))[0][0], 0)
+
+    def test_server_cold_start_keeps_login_lockout(self):
+        email = f"coldhttp-{self.tag}@example.com"
+        a = server.build_server(0, self.db)
+        reset_stub_throttle()
+        threading.Thread(target=a.serve_forever, daemon=True).start()
+        try:
+            st, _, b = Client(a.server_address[1]).req("POST", "/api/signup",
+                                                       {"name": "C", "email": email, "password": "correct horse"})
+            self.assertEqual(st, 201, b)
+            for _ in range(server.LOGIN_MAX_PER_ACCOUNT):
+                st, _, _ = Client(a.server_address[1]).req("POST", "/api/login", {"email": email, "password": "wrong one!"})
+                self.assertEqual(st, 401)
+        finally:
+            a.shutdown()
+            a.server_close()
+        b2 = server.build_server(0, self.db)              # cold start: fresh process state, same database
+        threading.Thread(target=b2.serve_forever, daemon=True).start()
+        try:
+            st, _, body = Client(b2.server_address[1]).req("POST", "/api/login",
+                                                           {"email": email, "password": "correct horse"})
+            self.assertEqual((st, body["code"]), (429, "throttled"))
+        finally:
+            b2.shutdown()
+            b2.server_close()
+
+
+class VercelClientIpTest(unittest.TestCase):
+    """On Vercel every request reaches us from the platform's proxy, so the client IP comes from the
+    headers Vercel sets (it overwrites client-supplied ones). Elsewhere GITASAARTHI_TRUST_PROXY rules apply."""
+
+    def pick(self, headers, peer="127.0.0.1", vercel=True, trust=False):
+        return server.pick_client_ip(peer, headers.get("X-Forwarded-For"), trust,
+                                     real_ip=headers.get("X-Real-IP"),
+                                     vercel_forwarded=headers.get("X-Vercel-Forwarded-For"), vercel=vercel)
+
+    def test_prefers_x_real_ip(self):
+        self.assertEqual(self.pick({"X-Real-IP": "203.0.113.7", "X-Vercel-Forwarded-For": "198.51.100.1",
+                                    "X-Forwarded-For": "6.6.6.6, 198.51.100.2"}), "203.0.113.7")
+
+    def test_then_first_vercel_forwarded_entry(self):
+        self.assertEqual(self.pick({"X-Real-IP": "nope", "X-Vercel-Forwarded-For": "198.51.100.1, 10.0.0.1"}),
+                         "198.51.100.1")
+
+    def test_then_rightmost_forwarded_for(self):
+        self.assertEqual(self.pick({"X-Forwarded-For": "6.6.6.6, 2001:db8::5"}), "2001:db8::5")
+        self.assertEqual(self.pick({"X-Forwarded-For": "6.6.6.6, junk"}), "127.0.0.1")
+        self.assertEqual(self.pick({}), "127.0.0.1")
+
+    def test_off_vercel_headers_ignored_unless_trusted(self):
+        h = {"X-Real-IP": "203.0.113.7", "X-Forwarded-For": "6.6.6.6, 8.8.8.8"}
+        self.assertEqual(self.pick(h, vercel=False), "127.0.0.1")
+        self.assertEqual(self.pick(h, vercel=False, trust=True), "8.8.8.8")
+
+    def test_vercel_default_reads_env_at_call_time(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"VERCEL": "1"}):
+            self.assertEqual(server.pick_client_ip("127.0.0.1", None, False, real_ip="203.0.113.9"), "203.0.113.9")
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("VERCEL", None)
+            self.assertEqual(server.pick_client_ip("127.0.0.1", None, False, real_ip="203.0.113.9"), "127.0.0.1")
+
+
+class VercelEdgeTest(unittest.TestCase):
+    """HTTP-level: per-IP throttle keyed on the Vercel client IP, and the CSRF origin allowlist."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.db = os.path.join(cls.tmp.name, "edge.db")
+        cls.httpd = server.build_server(0, cls.db)       # built before VERCEL is set: no hosted env needed
+        cls.port = cls.httpd.server_address[1]
+        threading.Thread(target=cls.httpd.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.httpd.shutdown()
+        cls.httpd.server_close()
+        cls.tmp.cleanup()
+
+    def setUp(self):
+        from unittest import mock
+        reset_stub_throttle()
+        self.tag = os.urandom(4).hex()
+        env = {"VERCEL": "1"}
+        for k in ("GITASAARTHI_PUBLIC_ORIGIN", "GITASAARTHI_ALLOWED_ORIGINS", "VERCEL_URL"):
+            env[k] = ""
+        self.env = mock.patch.dict(os.environ, env)
+        self.env.start()
+        self.addCleanup(self.env.stop)
+
+    def signup(self, n, headers):
+        return Client(self.port).req("POST", "/api/signup", {"name": "E", "email": f"e{n}-{self.tag}@example.com",
+                                                              "password": "correct horse"}, headers=headers)
+
+    def test_two_clients_do_not_share_the_ip_throttle(self):
+        from unittest import mock
+        with mock.patch.object(server, "SIGNUP_MAX_PER_IP", 2):
+            a = {"X-Real-IP": "203.0.113.10"}
+            self.assertEqual(self.signup(1, a)[0], 201)
+            self.assertEqual(self.signup(2, a)[0], 201)
+            self.assertEqual(self.signup(3, a)[0], 429)
+            self.assertEqual(self.signup(4, {"X-Real-IP": "203.0.113.11"})[0], 201)
+
+    def test_spoofed_leftmost_forwarded_for_does_not_change_the_ip(self):
+        from unittest import mock
+        with mock.patch.object(server, "SIGNUP_MAX_PER_IP", 2):
+            self.assertEqual(self.signup(1, {"X-Forwarded-For": "1.1.1.1, 198.51.100.20"})[0], 201)
+            self.assertEqual(self.signup(2, {"X-Forwarded-For": "2.2.2.2, 198.51.100.20"})[0], 201)
+            self.assertEqual(self.signup(3, {"X-Forwarded-For": "3.3.3.3, 198.51.100.20"})[0], 429)
+            self.assertEqual(self.signup(4, {"X-Real-IP": "203.0.113.12",
+                                             "X-Forwarded-For": "203.0.113.10, 198.51.100.20"})[0], 201)
+
+    def login(self, origin, host=None):
+        h = {"Origin": origin}
+        if host:
+            h["Host"] = host
+        return Client(self.port).req("POST", "/api/login", {"email": f"nobody-{self.tag}@example.com",
+                                                             "password": "wrong one!"}, headers=h)[0]
+
+    def test_public_origin_passes_when_host_differs(self):
+        os.environ["GITASAARTHI_PUBLIC_ORIGIN"] = "https://gita.example"
+        self.assertEqual(self.login("https://gita.example", host="internal.local"), 401)
+        self.assertEqual(self.login("https://gita.example/", host="internal.local"), 401)
+
+    def test_allowed_origins_list_and_vercel_url(self):
+        os.environ["GITASAARTHI_ALLOWED_ORIGINS"] = "https://a.example, https://b.example:8443"
+        os.environ["VERCEL_URL"] = "gita-abc123-team.vercel.app"
+        self.assertEqual(self.login("https://b.example:8443", host="internal.local"), 401)
+        self.assertEqual(self.login("https://a.example", host="internal.local"), 401)
+        self.assertEqual(self.login("https://gita-abc123-team.vercel.app", host="internal.local"), 401)
+        self.assertEqual(self.login("http://gita-abc123-team.vercel.app", host="internal.local"), 403)
+
+    def test_foreign_origin_still_refused(self):
+        os.environ["GITASAARTHI_PUBLIC_ORIGIN"] = "https://gita.example"
+        os.environ["GITASAARTHI_ALLOWED_ORIGINS"] = "https://a.example"
+        self.assertEqual(self.login("https://evil.example", host="internal.local"), 403)
+        self.assertEqual(self.login("https://gita.example.evil.example", host="internal.local"), 403)
+        self.assertEqual(self.login("https://a.example.evil", host="internal.local"), 403)
+        self.assertEqual(self.login("null", host="internal.local"), 403)
+        self.assertEqual(self.login(f"http://localhost:{self.port}"), 401)      # same-host rule unchanged
+
+
+class VercelEntryTest(unittest.TestCase):
+    """api/index.py is what Vercel runs. Its server object is Vercel's, not build_server's."""
+
+    def load_entry(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(f"vercel_entry_{os.urandom(3).hex()}",
+                                                      os.path.join(ROOT, "api", "index.py"))
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    def test_exposes_a_request_handler_class(self):
+        mod = self.load_entry()
+        self.assertTrue(isinstance(mod.handler, type) and issubclass(mod.handler, http.server.BaseHTTPRequestHandler))
+        self.assertTrue(issubclass(mod.handler, server.Handler))
+
+    def test_serves_from_a_plain_http_server(self):
+        from unittest import mock
+        mod = self.load_entry()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        reset_stub_throttle()
+        with mock.patch.object(server, "DEFAULT_DB", os.path.join(tmp.name, "entry.db")):
+            httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), mod.handler)   # no db_path, no throttle
+            threading.Thread(target=httpd.serve_forever, daemon=True).start()
+            try:
+                port = httpd.server_address[1]
+                c0 = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+                c0.request("GET", "/login.html")
+                r = c0.getresponse()
+                r.read()
+                c0.close()
+                self.assertEqual(r.status, 200)
+                self.assertIn("default-src", r.getheader("Content-Security-Policy") or "")
+                self.assertEqual(Client(port).req("GET", "/")[0], 302)     # "/" opens the sign-in page
+                email = f"entry-{os.urandom(4).hex()}@example.com"
+                c = Client(port)
+                st, _, b = c.req("POST", "/api/signup", {"name": "V", "email": email, "password": "correct horse"})
+                self.assertEqual(st, 201, b)
+                st, _, b = Client(port).req("POST", "/api/login", {"email": email, "password": "correct horse"})
+                self.assertEqual(st, 200, b)
+                st, loc, _ = Client(port).req("GET", "/admin.html")
+                self.assertNotEqual(st, 200)                   # page gating still runs in Python
+            finally:
+                httpd.shutdown()
+                httpd.server_close()
+        self.assertEqual(mod._STATE.get("db_path"), os.path.join(tmp.name, "entry.db"))
+
+    def test_init_runs_once_under_concurrency(self):
+        from unittest import mock
+        mod = self.load_entry()
+        calls = []
+        with mock.patch.object(server, "init_db", side_effect=lambda p: calls.append(p)), \
+                mock.patch.object(server, "purge_expired_sessions"), \
+                mock.patch.object(server, "Throttle", side_effect=lambda p: object()):
+            ts = [threading.Thread(target=mod.ensure_ready) for _ in range(8)]
+            for t in ts:
+                t.start()
+            for t in ts:
+                t.join()
+        self.assertEqual(len(calls), 1)
+
+    def test_failed_init_answers_503_then_recovers(self):
+        from unittest import mock
+        mod = self.load_entry()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), mod.handler)
+        threading.Thread(target=httpd.serve_forever, daemon=True).start()
+        try:
+            port = httpd.server_address[1]
+            with mock.patch.object(server, "DEFAULT_DB", os.path.join(tmp.name, "r.db")):
+                with mock.patch.object(server, "init_db", side_effect=RuntimeError("db down")):
+                    self.assertEqual(Client(port).req("GET", "/login.html")[0], 503)
+                self.assertEqual(Client(port).req("GET", "/login.html")[0], 200)
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
+
+    def test_failed_init_is_retried(self):
+        from unittest import mock
+        mod = self.load_entry()
+        with mock.patch.object(server, "init_db", side_effect=RuntimeError("db down")), \
+                mock.patch.object(server, "purge_expired_sessions"):
+            with self.assertRaises(RuntimeError):
+                mod.ensure_ready()
+        with mock.patch.object(server, "init_db"), mock.patch.object(server, "purge_expired_sessions"), \
+                mock.patch.object(server, "Throttle", side_effect=lambda p: object()):
+            mod.ensure_ready()
+        self.assertTrue(mod._STATE.get("ready"))
+
+
+class VercelConfigTest(unittest.TestCase):
+    def load(self):
+        with open(os.path.join(ROOT, "vercel.json"), encoding="utf-8") as f:
+            return json.load(f)
+
+    def test_everything_routes_to_the_python_function(self):
+        cfg = self.load()
+        routes = cfg.get("routes", []) + [{"src": r["source"], "dest": r["destination"]} for r in cfg.get("rewrites", [])]
+        self.assertIn({"src": "/(.*)", "dest": "/api/index"}, routes)
+        # a catch-all route must come before any filesystem phase, or the CDN serves the HTML without our headers
+        self.assertNotIn("filesystem", [r.get("handle") for r in cfg.get("routes", [])])
+
+    def test_no_node_build_and_bundle_excludes(self):
+        cfg = self.load()
+        self.assertIsNone(cfg.get("framework", "missing"))
+        self.assertEqual(cfg.get("buildCommand"), "")
+        self.assertEqual(cfg.get("installCommand"), "")
+        excl = cfg["functions"]["api/index.py"]["excludeFiles"]
+        for part in ("tests/**", "_archive/**", "docs/**", "node_modules/**", "scripts/**", "data/**"):
+            self.assertIn(part, excl)
+
+    def test_vercelignore_keeps_secrets_and_data_out(self):
+        with open(os.path.join(ROOT, ".vercelignore"), encoding="utf-8") as f:
+            lines = {ln.strip() for ln in f if ln.strip() and not ln.startswith("#")}
+        for want in ("data/", "*.db", "secret.key", ".env*", "tests/", "_archive/", "node_modules/",
+                     ".backup-before-unslop/", "docs/", "videos/", "screenshots/"):
+            self.assertIn(want, lines)
+
+    def test_server_module_is_not_a_zero_config_entrypoint(self):
+        # Vercel scans a root server.py for top-level `app` / `application`; those must not exist.
+        self.assertFalse(hasattr(server, "app") or hasattr(server, "application"))
 
 
 if __name__ == "__main__":

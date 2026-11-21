@@ -312,6 +312,9 @@ body { background: transparent; }
    the text keeps its own readable width inside it. */
 .read .page { width: 100%; max-width: 1920px; padding: 0 clamp(24px, 6vw, 128px); }
 @media (min-width: 1000px) { .read .page { padding: 0 clamp(64px, 8vw, 160px); } }
+
+/* Admin on wide windows: the same side margins as the dashboard, across the whole window */
+@media (min-width: 1000px) { .admin .page-wide { padding: 0 clamp(64px, 8vw, 160px); } }
 /* Standalone link rows are 44px targets; links inside a sentence stay inline. */
 .harbor-page .note a { display: inline-flex; align-items: center; min-height: 44px; }
 .auth #privacy-note { line-height: 1.6; }

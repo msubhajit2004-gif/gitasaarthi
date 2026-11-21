@@ -1,6 +1,6 @@
 """One command to check GitaSaarthi.
 
-    python check.py            unit tests, JS tests, JS syntax check
+    python check.py            Python tests (SQLite, plus the server suite on the Turso stub), JS tests, JS syntax
     python check.py --e2e      the same, plus the browser smoke test (needs Playwright)
 
 Exits 0 when everything passes, 1 otherwise.
@@ -14,10 +14,33 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 results = []
 
 
-def run(label, cmd, timeout=600):
+# Never handed to a test run: a shell that exported these for scripts/copy_to_turso.py must not send
+# the tests to the live database.
+SCRUB = ("TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN", "GITASAARTHI_TEST_BACKEND")
+
+
+def child_env(extra=None, base=None):
+    env = {k: v for k, v in (os.environ if base is None else base).items() if k not in SCRUB}
+    env.update(extra or {})
+    return env
+
+
+def python_test_runs():
+    """(label, command, extra env) for every Python suite: each tests/test_*.py once on SQLite, plus
+    the server suite again against the local Turso stub."""
+    suites = sorted(os.path.relpath(p, ROOT).replace(os.sep, "/")
+                    for p in glob.glob(os.path.join(ROOT, "tests", "test_*.py")))
+    return [
+        ("Python unit tests", [sys.executable, "-m", "unittest"] + suites, None),
+        ("Python server tests on the Turso stub", [sys.executable, "-m", "unittest", "tests/test_server.py"],
+         {"GITASAARTHI_TEST_BACKEND": "turso-stub"}),
+    ]
+
+
+def run(label, cmd, timeout=600, env=None):
     print(f"\n=== {label} ===", flush=True)
     try:
-        r = subprocess.run(cmd, cwd=ROOT, timeout=timeout)
+        r = subprocess.run(cmd, cwd=ROOT, timeout=timeout, env=child_env(env))
         ok = r.returncode == 0
     except FileNotFoundError:
         print(f"command not found: {cmd[0]}")
@@ -49,7 +72,8 @@ def js_syntax():
 
 
 def main():
-    run("Python unit tests", [sys.executable, "-m", "unittest", "tests/test_server.py"])
+    for label, cmd, env in python_test_runs():
+        run(label, cmd, env=env)
     tests = sorted(glob.glob(os.path.join(ROOT, "tests", "*.test.js")))
     run("Node tests", ["node", "--test"] + [os.path.relpath(t, ROOT) for t in tests])
     js_syntax()
