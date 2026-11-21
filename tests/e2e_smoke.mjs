@@ -39,8 +39,10 @@ function freePort(preferred = 8765) {
   });
 }
 
-const port = await freePort();
-const BASE = `http://127.0.0.1:${port}`;
+// BASE_URL=https://your-site runs the same steps against a live deployment instead of starting a local server.
+const REMOTE = (process.env.BASE_URL || "").replace(/\/+$/, "");
+const port = REMOTE ? 0 : await freePort();
+const BASE = REMOTE || `http://127.0.0.1:${port}`;
 let server = null, browser = null, failed = false;
 const consoleErrors = [];
 
@@ -60,7 +62,9 @@ function watch(page, tag) {
     if (m.type() !== "error") return;
     const t = m.text(), u = m.location().url || "";
     if (/favicon/i.test(t + u) || /Transition was aborted/i.test(t)) return;
-    consoleErrors.push(`[${tag}] ${t}`);
+    // The pages ask /api/me whether you are still signed in; 401 is the right answer after sign-out or delete.
+    if (/status of 401/.test(t) && /\/api\/me$/.test(u)) return;
+    consoleErrors.push(`[${tag}] ${t}${u ? " <- " + u : ""}`);
   });
   page.on("pageerror", (e) => {
     if (/Transition was aborted/i.test(String(e.message))) return;
@@ -109,14 +113,16 @@ const A = { name: "Asha Test", email: `asha${stamp}@example.com`, pw: "First-pas
 const B = { name: "Bram Test", email: `bram${stamp}@example.com`, pw: "Other-pass-1234" };
 
 try {
-  server = spawn("python", ["server.py"], {
-    cwd: ROOT,
-    env: { ...process.env, PORT: String(port), GITASAARTHI_DB: DB, GITASAARTHI_NO_BROWSER: "1" },
-    stdio: "ignore",
-    windowsHide: true,
-  });
   let exited = false;
-  server.on("exit", () => { exited = true; });
+  if (!REMOTE) {
+    server = spawn("python", ["server.py"], {
+      cwd: ROOT,
+      env: { ...process.env, PORT: String(port), GITASAARTHI_DB: DB, GITASAARTHI_NO_BROWSER: "1" },
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    server.on("exit", () => { exited = true; });
+  }
 
   await step("server starts and /healthz answers", async () => {
     const until = Date.now() + 20000;
