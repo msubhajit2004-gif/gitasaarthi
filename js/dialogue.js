@@ -49,7 +49,22 @@
     }
     return score;
   }
+  // Understand.rank (TF-IDF + synonyms) when it is loaded; exact stems otherwise.
+  function safeRequire(p) { try { return require(p); } catch (e) { return null; } }
+  const U = (typeof module !== "undefined" && module.exports) ? safeRequire("./understand.js") : root.Understand;
+  const indexCache = new WeakMap();
+  function indexFor(archetypes) {
+    let ix = indexCache.get(archetypes);
+    if (!ix) { ix = U.buildIndex(archetypes); indexCache.set(archetypes, ix); }
+    return ix;
+  }
   function matchArchetype(text, archetypes) {
+    if (U && U.rank) {
+      const byKey = new Map(archetypes.map(a => [a.id, a]));
+      const ranked = U.rank(text, indexFor(archetypes)).map(r => ({ archetype: byKey.get(r.id), score: r.score }));
+      const best = ranked[0] && ranked[0].score >= U.MIN_SCORE ? ranked[0] : null;
+      return { archetype: best ? best.archetype : null, score: best ? best.score : 0, ranked };
+    }
     const stems = new Set(contentStems(text));
     const ranked = archetypes.map(a => ({ archetype: a, score: scoreArchetype(a, stems) }))
       .sort((x, y) => y.score - x.score);
