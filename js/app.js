@@ -1149,9 +1149,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const keyMsg = document.getElementById("gemini-key-msg");
   const GS = window.geminiService;
   const FALLBACK_MODELS = [
-    { id: "gemini-3.8-flash", label: "gemini-3.8-flash (recommended)" },
-    { id: "gemini-2.5-pro", label: "gemini-2.5-pro" },
-    { id: "gemini-2.0-flash", label: "gemini-2.0-flash" }
+    { id: "gemini-3-flash-preview", label: "gemini-3-flash-preview (recommended)" },
+    { id: "gemini-3.1-flash-lite", label: "gemini-3.1-flash-lite (fastest)" },
+    { id: "gemini-2.5-pro", label: "gemini-2.5-pro" }
   ];
   let replacing = false;
 
@@ -1174,7 +1174,7 @@ document.addEventListener("DOMContentLoaded", () => {
       o.value = m.id; o.textContent = m.label || m.id;
       geminiModelSelect.appendChild(o);
     });
-    geminiModelSelect.value = current || "gemini-3.8-flash";
+    geminiModelSelect.value = current || "gemini-3-flash-preview";
   }
 
   async function loadModels() {
@@ -1222,7 +1222,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let old = null;
     try { old = JSON.parse(localStorage.getItem("gitasaarthi_gemini_config") || "null"); } catch (e) { return Promise.resolve(); }
     if (!old || !old.apiKey) return Promise.resolve();
-    const model = !old.model || old.model === "gemini-2.5-flash" ? "gemini-3.8-flash" : old.model;
+    const model = !old.model || ["gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.5-flash"].indexOf(old.model) >= 0 ? "gemini-3-flash-preview" : old.model;
     return putGemini({ apiKey: String(old.apiKey).trim(), enabled: !!old.enabled, model })
       .then(() => { try { localStorage.removeItem("gitasaarthi_gemini_config"); } catch (e) {} }, () => {});
   }

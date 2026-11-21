@@ -822,7 +822,7 @@ class GeminiTest(unittest.TestCase):
     def test_get_defaults(self):
         c = self.user("g0@example.com")
         st, _, b = c.req("GET", "/api/me/gemini")
-        self.assertEqual((st, b), (200, {"hasKey": False, "keyHint": None, "enabled": False, "model": "gemini-3.8-flash"}))
+        self.assertEqual((st, b), (200, {"hasKey": False, "keyHint": None, "enabled": False, "model": "gemini-3-flash-preview"}))
 
     def test_put_get_never_leaks_and_stored_encrypted(self):
         c = self.user("g1@example.com")
@@ -872,7 +872,7 @@ class GeminiTest(unittest.TestCase):
         st, _, body = a.req("DELETE", "/api/me/gemini", {})
         self.assertEqual((st, body), (200, {"ok": True}))
         self.assertEqual(a.req("GET", "/api/me/gemini")[2],
-                         {"hasKey": False, "keyHint": None, "enabled": False, "model": "gemini-3.8-flash"})
+                         {"hasKey": False, "keyHint": None, "enabled": False, "model": "gemini-3-flash-preview"})
 
     def test_account_delete_cascades(self):
         c = self.with_key("g5@example.com")
@@ -899,7 +899,7 @@ class GeminiTest(unittest.TestCase):
         st, _, b = c.req("POST", "/api/gemini/test", {})
         self.assertEqual((st, b), (200, {"ok": True}))
         path, body = StubGoogle.seen[-1]
-        self.assertEqual(path, "/v1beta/models/gemini-3.8-flash:generateContent")
+        self.assertEqual(path, "/v1beta/models/gemini-3-flash-preview:generateContent")
         self.assertNotIn(GOOD_KEY, path)
         self.assertIn("Reply with OK", json.dumps(body))
 
@@ -932,7 +932,7 @@ class GeminiTest(unittest.TestCase):
         st, _, b = c.req("POST", "/api/gemini/generate", payload)
         self.assertEqual((st, b), (200, CANNED))
         path, sent = StubGoogle.seen[-1]
-        self.assertEqual(path, "/v1beta/models/gemini-3.8-flash:generateContent")
+        self.assertEqual(path, "/v1beta/models/gemini-3-flash-preview:generateContent")
         self.assertEqual(sent, payload)
         c.req("POST", "/api/gemini/generate", dict(payload, model="gemini-3.8-pro"))
         self.assertEqual(StubGoogle.seen[-1][0], "/v1beta/models/gemini-3.8-pro:generateContent")

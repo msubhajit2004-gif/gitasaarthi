@@ -108,5 +108,25 @@ class ContentBasedEtag(unittest.TestCase):
             self.assertEqual(server.file_etag(a, os.stat(a)), server.file_etag(b, os.stat(b)))
 
 
+class GeminiModelChoice(unittest.TestCase):
+    """Found with a real key: gemini-2.5-flash is retired for new keys, and gemini-3.8-flash / gemini-3.5-flash
+    did not answer within a minute, while gemini-3-flash-preview and gemini-3.1-flash-lite answer in 2-3 seconds."""
+
+    def test_the_default_is_a_model_that_answers(self):
+        self.assertEqual(server.GEMINI_DEFAULT_MODEL, "gemini-3-flash-preview")
+
+    def test_models_that_no_longer_work_map_to_the_default(self):
+        for bad in ("gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.5-flash"):
+            self.assertEqual(server.normalize_gemini_model(bad), server.GEMINI_DEFAULT_MODEL, bad)
+
+    def test_other_models_are_left_alone(self):
+        for ok in ("gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-3-flash-preview"):
+            self.assertEqual(server.normalize_gemini_model(ok), ok)
+
+    def test_missing_or_empty_means_the_default(self):
+        for none in (None, "", "   "):
+            self.assertEqual(server.normalize_gemini_model(none), server.GEMINI_DEFAULT_MODEL)
+
+
 if __name__ == "__main__":
     unittest.main()

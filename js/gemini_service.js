@@ -6,7 +6,7 @@
 class GeminiService {
   constructor() {
     this.speedKey = "gitasaarthi_speech_speed";
-    this.state = { hasKey: false, keyHint: null, enabled: false, model: "gemini-3.8-flash" };
+    this.state = { hasKey: false, keyHint: null, enabled: false, model: "gemini-3-flash-preview" };
     let speed = 1.0;
     try { const v = parseFloat(localStorage.getItem(this.speedKey)); if (v >= 0.7 && v <= 1.3) speed = v; } catch (e) {}
     this.config = { speechSpeed: speed };
@@ -35,7 +35,7 @@ class GeminiService {
     try {
       if (window.GSAccount && window.GSAccount.ready) await window.GSAccount.ready;
       const d = await this._api("GET", "/api/me/gemini");
-      this.state = { hasKey: !!d.hasKey, keyHint: d.keyHint || null, enabled: !!d.enabled, model: d.model || "gemini-3.8-flash" };
+      this.state = { hasKey: !!d.hasKey, keyHint: d.keyHint || null, enabled: !!d.enabled, model: d.model || "gemini-3-flash-preview" };
     } catch (e) {
       console.warn("Could not read the Gemini settings", e);
     }
@@ -44,7 +44,7 @@ class GeminiService {
 
   setState(d) {
     if (!d) return;
-    this.state = { hasKey: !!d.hasKey, keyHint: d.keyHint || null, enabled: !!d.enabled, model: d.model || "gemini-3.8-flash" };
+    this.state = { hasKey: !!d.hasKey, keyHint: d.keyHint || null, enabled: !!d.enabled, model: d.model || "gemini-3-flash-preview" };
   }
 
   hasValidKey() {
@@ -130,7 +130,7 @@ Return ONLY the raw JSON string, without markdown formatting or code fences.`;
       throw new Error("Gemini is not switched on.");
     }
 
-    const modelName = this.state.model || "gemini-3.8-flash";
+    const modelName = this.state.model || "gemini-3-flash-preview";
 
     // The prompt goes in systemInstruction; history is the earlier turns only
     // (the caller passes history without the current message, so it is sent once).
@@ -152,8 +152,9 @@ Return ONLY the raw JSON string, without markdown formatting or code fences.`;
         topP: 0.95,
         maxOutputTokens: 2048,
         responseMimeType: "application/json",
-        // 2.5 models spend output tokens on thinking, which cut the JSON short.
-        ...(/2\.5/.test(modelName) ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+        // Flash models spend output tokens on thinking, which slows the reply (about 4 s instead of 2.4 s) and can
+        // cut the JSON short. Pro models require thinking, so they are left alone.
+        ...(/flash/i.test(modelName) ? { thinkingConfig: { thinkingBudget: 0 } } : {})
       }
     };
 

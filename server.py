@@ -71,7 +71,17 @@ MAX_LIMIT = 100
 DEFAULT_LIMIT = 50
 SCHEMA_VERSION = 2   # 2: user_secrets table (encrypted per-account Gemini key)
 GEMINI_BASE = os.environ.get("GITASAARTHI_GEMINI_BASE", "https://generativelanguage.googleapis.com").rstrip("/")
-GEMINI_DEFAULT_MODEL = "gemini-3.8-flash"
+# Chosen with a real key: it answers in 2-3 seconds. gemini-2.5-flash is retired for new keys, and
+# gemini-3.8-flash / gemini-3.5-flash did not answer within a minute, so anyone who saved those gets the default.
+GEMINI_DEFAULT_MODEL = "gemini-3-flash-preview"
+GEMINI_UNUSABLE_MODELS = {"gemini-2.5-flash", "gemini-3.8-flash", "gemini-3.5-flash"}
+
+
+def normalize_gemini_model(model):
+    model = (model or "").strip() if isinstance(model, str) or model is None else ""
+    if not model or model in GEMINI_UNUSABLE_MODELS:
+        return GEMINI_DEFAULT_MODEL
+    return model
 GEMINI_TIMEOUT = 30
 GEMINI_MAX_BODY = 256 * 1024
 GEMINI_RATE = 30            # upstream calls per user per minute
@@ -699,7 +709,7 @@ def gemini_view(cfg):
     key = cfg.get("apiKey")
     return {"hasKey": bool(key), "keyHint": ("\u2026" + key[-4:]) if key else None,
             "enabled": bool(key) and bool(cfg.get("enabled")),
-            "model": cfg.get("model") or GEMINI_DEFAULT_MODEL}
+            "model": normalize_gemini_model(cfg.get("model"))}
 
 
 def gemini_request(key, method, path, body=None):
@@ -1326,7 +1336,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if not cfg.get("apiKey"):
             raise ApiError(400, "Save your Gemini key first.")
         blob = encrypt_secret(json.dumps({"apiKey": cfg["apiKey"], "enabled": bool(cfg.get("enabled")),
-                                          "model": cfg.get("model") or GEMINI_DEFAULT_MODEL}), load_master_key())
+                                          "model": normalize_gemini_model(cfg.get("model"))}), load_master_key())
         conn.execute("INSERT INTO user_secrets (user_id, name, value, updated_at) VALUES (?, 'gemini', ?, ?) "
                      "ON CONFLICT(user_id, name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
                      (uid, blob, iso(now_utc())))
@@ -1353,7 +1363,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     def api_gemini_test(self, conn, user):
         self.read_json()
         cfg = self.gemini_ready(conn, user)
-        model = cfg.get("model") or GEMINI_DEFAULT_MODEL
+        model = normalize_gemini_model(cfg.get("model"))
         status, parsed, _ = gemini_request(
             cfg["apiKey"], "POST", f"/v1beta/models/{quote(model, safe='')}:generateContent",
             {"contents": [{"role": "user", "parts": [{"text": "Reply with OK"}]}],
@@ -1401,7 +1411,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if model is not None and (not isinstance(model, str) or not GEMINI_MODEL_RE.fullmatch(model)):
             raise ApiError(400, "That model name is not valid.")
         cfg = self.gemini_ready(conn, user)
-        model = model or cfg.get("model") or GEMINI_DEFAULT_MODEL
+        model = normalize_gemini_model(model or cfg.get("model"))
         status, parsed, _ = gemini_request(
             cfg["apiKey"], "POST", f"/v1beta/models/{quote(model, safe='')}:generateContent", body)
         if status == 200 and parsed is not None:
