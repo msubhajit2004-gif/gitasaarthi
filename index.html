@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="css/styles.css?v=44">
   <link rel="stylesheet" href="css/specular-button.css?v=31">
   <link rel="stylesheet" href="css/thought-line.css?v=31">
-  <link rel="stylesheet" href="css/plate.css?v=78">
+  <link rel="stylesheet" href="css/plate.css?v=79">
   <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
 </head>
 <body>
@@ -108,7 +108,7 @@
     </nav>
 
     <div class="stage" id="stage">
-      <main class="chat-viewport" id="chat-viewport" role="log" aria-live="polite">
+      <main class="chat-viewport" id="chat-viewport" aria-live="polite" aria-label="Conversation with Krishna">
 
         <section class="welcome-hero-card" id="welcome-hero-card">
           <div class="hero-sanskrit" id="hero-sanskrit" lang="sa">कर्मण्येवाधिकारस्ते मा फलेषु कदाचन।</div>
@@ -127,7 +127,7 @@
       </main>
     </div>
 
-    <footer class="composer-wrapper">
+    <div class="composer-wrapper" role="region" aria-label="Write to Krishna">
       <form class="composer-form" id="composer-form">
         <button type="button" class="mic-voice-btn" id="mic-btn" title="Speak instead of typing" aria-label="Speak instead of typing"><svg class="i" aria-hidden="true"><use href="#i-mic"/></svg></button>
         <textarea class="chat-input-textarea" id="chat-input" rows="1" placeholder="Write what is on your mind" aria-label="Your message"></textarea>
@@ -137,7 +137,7 @@
         <span class="engine-pill" id="engine-badge">Curated wisdom, offline and private</span>
         <span>Kept in your account. Not a medical service.</span>
       </div>
-    </footer>
+    </div>
 
   </div>
 
@@ -423,7 +423,7 @@
   <script src="js/gemini_service.js?v=44"></script>
   <script src="js/dialogue.js?v=44"></script>
   <script src="js/app.js?v=59"></script>
-  <script src="js/effects.js?v=41"></script>
+  <script src="js/effects.js?v=42"></script>
   <script src="js/specular-button.js?v=31"></script>
   <script src="js/thought-line.js?v=31"></script>
   <script src="js/theme.js?v=1"></script>

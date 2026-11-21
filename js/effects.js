@@ -21,7 +21,6 @@
     if (!text.trim()) return;
     const step = (opts && opts.step) || 60;
     const delay = (opts && opts.delay) || 0;
-    el.setAttribute("aria-label", text);
     el.textContent = "";
     let i = 0;
     text.split(/(\s+)/).forEach((token) => {
@@ -35,6 +34,11 @@
       el.appendChild(span);
       i++;
     });
+    // The words above are animated and hidden from screen readers; this visually hidden copy is what they read.
+    const sr = document.createElement("span");
+    sr.className = "sr-only";
+    sr.textContent = text;
+    el.appendChild(sr);
   }
 
   // ---------------------------------------------------------------- 2. Text Type

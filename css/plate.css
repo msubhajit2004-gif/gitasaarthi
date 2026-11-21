@@ -885,3 +885,6 @@ html .acct-warn { margin: 0; font-size: 15px; line-height: 1.5; color: var(--neg
 html .acct-warn:empty { display: none; }
 html .acct-msg:empty { display: none; }
 html #gs-save-warning a { color: var(--text-2); text-decoration: underline; text-underline-offset: 4px; }
+
+/* Text for screen readers only (the animated verse keeps a plain copy of itself) */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
