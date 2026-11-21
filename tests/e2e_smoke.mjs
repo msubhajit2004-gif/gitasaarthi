@@ -67,8 +67,8 @@ function watch(page, tag) {
     if (/favicon/i.test(t + u) || /Transition was aborted|Navigated away from page/i.test(t)) return;
     // Safari's engine reports a save it cancelled by navigating away; the unsaved item is retried on the next page.
     if (/Fetch API cannot load .*\/api\/me\/data.* due to access control checks/.test(t)) return;
-    // The pages ask /api/me whether you are still signed in; 401 is the right answer after sign-out or delete.
-    if (/status of 401/.test(t) && /\/api\/me$/.test(u)) return;
+    // The pages ask /api/me (and the Gemini setting) whether you are still signed in; 401 is the right answer after sign-out or delete.
+    if (/status of 401/.test(t) && /\/api\/me(\/gemini)?$/.test(u)) return;
     consoleErrors.push(`[${tag}] ${t}${u ? " <- " + u : ""}`);
   });
   page.on("pageerror", (e) => {
@@ -138,6 +138,18 @@ try {
       await new Promise((r) => setTimeout(r, 250));
     }
     throw new Error("timed out waiting for /healthz");
+  });
+
+  await step("signed-out visitors are sent to sign-in and every response carries the security headers", async () => {
+    for (const path of ["/index.html", "/dashboard.html", "/admin.html"]) {
+      const r = await fetch(`${BASE}${path}`, { redirect: "manual" });
+      await expectTrue(r.status === 302 && /\/login\.html/.test(r.headers.get("location") || ""), `${path} gave ${r.status}, expected a redirect to sign-in`);
+      await expectTrue(/default-src/.test(r.headers.get("content-security-policy") || ""), `${path} has no Content-Security-Policy`);
+    }
+    for (const path of ["/login.html", "/css/site.css", "/js/app.js", "/nope.html"]) {
+      const r = await fetch(`${BASE}${path}`, { redirect: "manual" });
+      await expectTrue(/default-src/.test(r.headers.get("content-security-policy") || ""), `${path} has no Content-Security-Policy`);
+    }
   });
 
   if (!failed) browser = await chromium.launch({ headless: true });
