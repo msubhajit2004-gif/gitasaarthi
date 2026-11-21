@@ -1,5 +1,7 @@
 # GitaSaarthi
 
+**Live site: https://gitasaarthi-gray.vercel.app**
+
 GitaSaarthi is a small website where you talk through stress, worry or sadness and get a verse from the Bhagavad Gita plus a short CBT exercise. It is a space for reflection. It is not medical care and does not replace a doctor, a therapist or emergency help.
 
 It is served by `server.py`, a single Python program with no packages to install. Pages are plain HTML, CSS and JavaScript.
@@ -80,7 +82,7 @@ Set these environment variables in the Vercel project:
 | TURSO_DATABASE_URL | The Turso database URL, from `turso db show <db> --url`. |
 | TURSO_AUTH_TOKEN | A token for that database, from `turso db tokens create <db>`. |
 | GITASAARTHI_MASTER_KEY | 32 random bytes, base64. Encrypts saved Gemini keys. Required; the site will not start without it. |
-| GITASAARTHI_PUBLIC_ORIGIN | The site's address, for example `https://gitasaarthi.vercel.app`. |
+| GITASAARTHI_PUBLIC_ORIGIN | The site's address, for example `https://gitasaarthi-gray.vercel.app`. |
 | GITASAARTHI_SECURE_COOKIE | Set to 1. |
 | GITASAARTHI_ALLOWED_ORIGINS | Optional. More addresses allowed to send forms, such as a preview URL. |
 
