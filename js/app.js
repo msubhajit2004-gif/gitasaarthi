@@ -267,7 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `<blockquote class="verse-quote"><p class="verse-sanskrit">${escapeHtml(verse.sanskrit)}</p>` +
         `<p>${escapeHtml(verse.translation)}</p><cite>${escapeHtml(verse.reference)}</cite></blockquote>` : "";
     const noteHtml = note ? `<p class="krishna-note">${escapeHtml(note)}</p>` : "";
-    const { row } = krishnaCard(`<div class="krishna-ack-text">${escapeHtml(message)}</div>${quote}${noteHtml}`, "Krishna");
+    const { row } = krishnaCard(`<div class="krishna-ack-text">${escapeHtml(message)}</div>${quote}${noteHtml}`, "Reflection");
     wireReactions(row);
     state.history.push({ sender: "krishna", phase: 0, content: { message, verse }, timestamp: new Date() });
   }
