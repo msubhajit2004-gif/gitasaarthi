@@ -36,7 +36,7 @@
   ];
   function detectCrisis(text) {
     const t = String(text || "").toLowerCase().replace(/[’']/g, "");
-    return CRISIS.some(re => re.test(t));
+    return CRISIS.some(re => re.test(t)) || !!(U && U.isCrisis && U.isCrisis(text));
   }
 
   // ---- Matching ----------------------------------------------------------
@@ -52,6 +52,7 @@
   // Understand.rank (TF-IDF + synonyms) when it is loaded; exact stems otherwise.
   function safeRequire(p) { try { return require(p); } catch (e) { return null; } }
   const U = (typeof module !== "undefined" && module.exports) ? safeRequire("./understand.js") : root.Understand;
+  const G = (typeof module !== "undefined" && module.exports) ? safeRequire("./gita_knowledge.js") : root.GitaKnowledge;
   const indexCache = new WeakMap();
   function indexFor(archetypes) {
     let ix = indexCache.get(archetypes);
@@ -98,7 +99,7 @@
 
   // ---- Session -----------------------------------------------------------
   function createSession() {
-    return { phase: 0, archetypeId: null, shownParts: [], shownLines: [], offered: [], followups: 0, clarifies: 0, stepIdx: 0, lastAnswer: "" };
+    return { phase: 0, archetypeId: null, shownParts: [], shownLines: [], offered: [], followups: 0, clarifies: 0, stepIdx: 0, lastAnswer: "", lastVerse: null, talk: 0 };
   }
   const rememberLine = (s, line) => { s.shownLines.push(line); return line; };
   const seenVerse = (s, ref) => verseParts(ref).some(p => s.shownParts.includes(p));
@@ -155,6 +156,8 @@
     const echo = trim(answer);
     const intro = rememberLine(s, echo ? `You named “${echo}”.` : `You have looked at ${a.title.toLowerCase()} honestly.`);
     markVerse(s, p2.shloka.reference);
+    s.lastVerse = { reference: p2.shloka.reference, sanskrit: p2.shloka.sanskrit, transliteration: p2.shloka.transliteration,
+      translation: p2.shloka.translation, insight: p2.shloka.insight || "", owner: a.id };
     return { kind: "phase2", payload: Object.assign({}, p2, { archetype: a, echo, intro }) };
   }
 
@@ -184,19 +187,131 @@
     }
     const verse = candidates[0].v;
     markVerse(s, verse.reference);
+    s.lastVerse = verse;
     return { kind: "followup", payload: { archetype: a, intro, verse, step, closing: FOLLOW_CLOSINGS[n % FOLLOW_CLOSINGS.length] } };
   }
 
+  // Only used when two feelings are genuinely close: the three nearest, not a fixed list.
   function clarify(s, text, lib) {
     const { ranked } = matchArchetype(text, lib.archetypes);
     const fresh = ranked.filter(r => !s.offered.includes(r.archetype.id));
-    const pool = (fresh.length >= 4 ? fresh : ranked);
-    const options = pool.slice(0, 4).map(r => ({ id: r.archetype.id, title: r.archetype.title }));
+    const pool = (fresh.length >= 3 ? fresh : ranked);
+    const options = pool.slice(0, 3).map(r => ({ id: r.archetype.id, title: r.archetype.title }));
     options.forEach(o => s.offered.push(o.id));
     let prompt = pickUnused(s, CLARIFY_PROMPTS) || CLARIFY_PROMPTS[s.clarifies % CLARIFY_PROMPTS.length];
     s.clarifies++;
     rememberLine(s, prompt);
     return { kind: "clarify", payload: { prompt, options } };
+  }
+  function ambiguous(m) {
+    const a = m.ranked[0], b = m.ranked[1];
+    return !!(a && b && a.score >= (U ? U.MIN_SCORE : 0) && b.score >= 0.95 * a.score);
+  }
+
+  // ---- Conversation (not feelings): short lines, no verse ----------------------------
+  const BANK = {
+    hello: [
+      "I am glad you came. Tell me what is on your mind, when you are ready.",
+      "I am here, and I have time. What would you like to talk about?",
+      "Welcome. Take a breath. What is sitting on your heart today?",
+      "Good to have you here. How has the day been, really?",
+    ],
+    howareyou: [
+      "I am steady, thank you for asking. More important is how you are. What is on your mind?",
+      "I am here and listening. How are you, truly? Tell me what the day has been like.",
+      "Quiet and ready to listen. And you? What are you carrying today?",
+      "I am well. Let us talk about you. What has been on your mind?",
+    ],
+    gratitude: [
+      "You are welcome. Go gently with yourself. I am here whenever you want to talk.",
+      "May the steadiness stay with you. Come back any time.",
+      "I am glad it helped. Rest in it. If something else comes up, tell me.",
+      "Walk well. You know where to find me.",
+    ],
+    good_news: [
+      "I am glad to hear that. Let it be good for a moment before you move on. Would you like to tell me more about it?",
+      "That is good news. You may let yourself feel it. What part of it matters most to you?",
+      "Good. Take a moment with that. How are you feeling about it now?",
+      "I am happy for you. Tell me how it came about, if you wish. What does it mean to you?",
+    ],
+    redirect: [
+      "That is outside what I can answer here. I can only talk about how you feel and about the Bhagavad Gita. Tell me what is on your mind, or ask me about the Gita.",
+      "I cannot help with that one. If something is weighing on you, I would like to hear it, or you can ask me about the Gita.",
+      "That is not something I can answer well. I am here to listen and to talk about the Gita. What is on your mind?",
+    ],
+    unclear: [
+      "Tell me a little more. What is sitting heaviest on you right now?",
+      "I am listening. What has been on your mind the most these days?",
+      "Take your time. If you had to name one thing weighing on you today, what would it be?",
+      "Say it in your own words: what has been the hardest part of today?",
+    ],
+    affirm: [
+      "Alright. Tell me a little more about what is on your mind, when you are ready.",
+      "I hear you. What would you like to say about it? Take your time.",
+    ],
+    deny: [
+      "That is all right. Take your time. Tell me what is on your mind whenever you wish.",
+      "Fine. There is no hurry. What would you rather talk about?",
+    ],
+    filler: [
+      "I am here. Tell me what is on your mind, when you are ready.",
+      "No hurry. When a word comes, say it, even a small one.",
+    ],
+    affirm_on: [
+      "I am glad. What changed, even a little?",
+      "Good. Which part of it helped the most?",
+    ],
+    deny_on: [
+      "That is all right. Not every step lands the first time. What got in the way?",
+      "Thank you for saying so. What made it hard to try?",
+    ],
+    filler_on: [
+      "Take your time. What do you notice when you sit with it?",
+      "No hurry. What is the first thing that comes up when you think of it?",
+    ],
+  };
+  const PREFIX = { morning: "Good morning.", afternoon: "Good afternoon.", evening: "Good evening.", night: "Good night." };
+  // Deterministic: rotate through the bank by a per-session counter, skipping lines already said.
+  function say(s, bank, prefix) {
+    const n = s.talk++;
+    let line = null;
+    for (let i = 0; i < bank.length && !line; i++) {
+      const c = (prefix ? prefix + " " : "") + bank[(n + i) % bank.length];
+      if (!s.shownLines.includes(c)) line = c;
+    }
+    if (!line) line = (prefix ? prefix + " " : "") + bank[n % bank.length] + " ";
+    return rememberLine(s, line.trim());
+  }
+  const talk = (s, key, prefix) => ({ kind: "smalltalk", payload: { message: say(s, BANK[key], prefix) } });
+
+  // Explains the verse just shown, from the library's own commentary. GitaKnowledge answers
+  // when it is loaded; this is the plain fallback.
+  function explainLastVerse(s) {
+    const v = s.lastVerse;
+    const message = (v.insight ? v.insight + " " : "") + "Which part of it do you want to look at more closely?";
+    return { kind: "answer", payload: { message, verse: { reference: v.reference, sanskrit: v.sanskrit, translation: v.translation } } };
+  }
+
+  // Turn for non-feeling messages, or null to let the feeling flow take over.
+  function routeConversation(s, it, text, lib) {
+    switch (it.type) {
+      case "greeting": return talk(s, it.detail.sub === "howareyou" ? "howareyou" : "hello", PREFIX[it.detail.sub]);
+      case "gratitude": return talk(s, "gratitude");
+      case "good_news": return talk(s, "good_news");
+      case "offtopic": return { kind: "redirect", payload: talk(s, "redirect").payload };
+      case "verse_question": {
+        const g = G && G.answer ? G.answer(text, lib, s) : null;
+        return g ? { kind: "answer", payload: g } : explainLastVerse(s);
+      }
+      case "gita_question": {
+        const g = G && G.answer ? G.answer(text, lib, s) : null;
+        return g ? { kind: "answer", payload: g } : null;
+      }
+      case "affirm": case "deny": case "filler":
+        if (s.phase === 1) return null;
+        return talk(s, it.type + (s.phase >= 2 ? "_on" : ""));
+      default: return null;
+    }
   }
 
   function close(s) {
@@ -263,10 +378,12 @@
       if (a) return startPhase1(s, a, lib);
     }
     if (input.reaction === "calm") return close(s);
-    if (input.reaction === "ask") return current ? followup(s, current, "", lib, s.lastAnswer) : clarify(s, "", lib);
+    if (input.reaction === "ask") return current ? followup(s, current, "", lib, s.lastAnswer) : talk(s, "unclear");
 
+    if (text && U && U.intent) return routeText(s, text, lib, current);
+
+    // Without Understand loaded: the original exact-match flow.
     if (s.phase === 1 && current) return phase2(s, current, text, lib);
-
     const m = matchArchetype(text, lib.archetypes);
     if (s.phase >= 2 && current) {
       if (m.archetype && m.archetype.id !== current.id) {
@@ -276,6 +393,25 @@
     }
     if (m.archetype) return startPhase1(s, m.archetype, lib);
     return clarify(s, text, lib);
+  }
+
+  function routeText(s, text, lib, current) {
+    const it = U.intent(text, s, indexFor(lib.archetypes));
+    const turn = routeConversation(s, it, text, lib);
+    if (turn) return turn;
+    if (s.phase === 1 && current) {
+      const short = it.type === "affirm" || it.type === "deny" || it.type === "filler";
+      return phase2(s, current, short ? "" : text, lib);
+    }
+    const m = matchArchetype(text, lib.archetypes);
+    const feeling = it.type === "feeling" || (it.type === "gita_question" && m.archetype);
+    if (s.phase >= 2 && current) {
+      if (!feeling || !m.archetype) return talk(s, "unclear");
+      if (m.archetype.id !== current.id) { const t = startPhase1(s, m.archetype, lib); t.switched = true; return t; }
+      return followup(s, current, text, lib);
+    }
+    if (feeling && m.archetype) return ambiguous(m) ? clarify(s, text, lib) : startPhase1(s, m.archetype, lib);
+    return talk(s, "unclear");
   }
 
   const api = { createSession, nextTurn, detectCrisis, detectAside, matchArchetype, verseKey, verseParts };

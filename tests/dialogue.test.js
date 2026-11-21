@@ -35,14 +35,14 @@ test("I feel calmer closes the conversation instead of restarting phase 1", () =
   assert.equal(t.kind, "close");
 });
 
-test("Unmatched input asks which feeling is closest, never the same fallback twice", () => {
+test("Unmatched input gets an open question, never the same one twice, and no fixed picker", () => {
   const s = D.createSession();
   const a = D.nextTurn(s, { text: "hmm" }, lib);
   const b = D.nextTurn(s, { text: "hmm" }, lib);
-  assert.equal(a.kind, "clarify");
-  assert.equal(b.kind, "clarify");
-  assert.equal(a.payload.options.length, 4);
-  assert.notEqual(a.payload.prompt + a.payload.options.map(o => o.id).join(), b.payload.prompt + b.payload.options.map(o => o.id).join());
+  assert.equal(a.kind, "smalltalk");
+  assert.equal(b.kind, "smalltalk");
+  assert.equal(a.payload.options, undefined);
+  assert.notEqual(a.payload.message, b.payload.message);
 });
 
 test("Word stems match: 'overwhelming pressure at work' finds burnout or workplace", () => {
@@ -181,7 +181,7 @@ test("Questions about the app are answered in two plain sentences", () => {
 
 test("Ordinary feelings and unmatched text are not asides", () => {
   assert.equal(D.nextTurn(D.createSession(), { text: "I feel burnt out" }, lib).kind, "phase1");
-  assert.equal(D.nextTurn(D.createSession(), { text: "hmm" }, lib).kind, "clarify");
+  assert.equal(D.nextTurn(D.createSession(), { text: "hmm" }, lib).kind, "smalltalk");
 });
 
 
