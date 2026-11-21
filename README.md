@@ -106,9 +106,17 @@ Back up the Turso database:
 
 To copy accounts from a local `data/gitasaarthi.db` into Turso, use `scripts/copy_to_turso.py`. Try a dry run first; see the script for its options. You can run it again later, and what is already on Turso wins. An account or event already there is left as it is. Journal, practice and saved-key rows are replaced only by a newer local row. An account deleted on Turso, or a saved key removed there, is not copied back. If a local id or email belongs to a different account on Turso (for example, someone signed up on the live site and got that id), the script refuses and writes nothing.
 
-To make an admin on the live site, set the Turso variables (and `GITASAARTHI_MASTER_KEY`) in your shell and run the usual command; it then works against Turso instead of the local file:
+To make an admin on the live site, set the two Turso variables in your shell and run the usual command; it then works against Turso instead of the local file. The master key is not needed for this.
+
+macOS or Linux:
 
     TURSO_DATABASE_URL=... TURSO_AUTH_TOKEN=... python server.py --make-admin you@example.com
+
+Windows PowerShell:
+
+    $env:TURSO_DATABASE_URL = "..."; $env:TURSO_AUTH_TOKEN = "..."; python server.py --make-admin you@example.com
+
+Both values are in the Vercel project (Settings, Environment Variables) or, after `vercel env pull .env.local`, in `.env.local`.
 
 ## Deploying behind your own proxy
 

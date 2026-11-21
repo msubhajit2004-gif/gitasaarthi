@@ -332,15 +332,51 @@ def set_role(db_path, email, role):
 
 
 def practice_streak(days):
-    have = set(d for d in days if isinstance(d, str))
-    d = now_utc().date()
-    if d.isoformat() not in have:
-        d -= timedelta(days=1)
+    """Consecutive practised days ending at the latest one. The app stores each person's own local date, which
+    can be a day ahead of or behind UTC, so the latest date counts when it is within a day of UTC today."""
+    have = set()
+    for d in days:
+        if isinstance(d, str):
+            try:
+                have.add(now_utc().date().fromisoformat(d))
+            except ValueError:
+                pass
+    today = now_utc().date()
+    candidates = [d for d in have if d <= today + timedelta(days=1)]
+    if not candidates:
+        return 0
+    day = max(candidates)
+    if day < today - timedelta(days=1):
+        return 0
     n = 0
-    while d.isoformat() in have:
+    while day in have:
         n += 1
-        d -= timedelta(days=1)
+        day -= timedelta(days=1)
     return n
+
+
+def normalize_throttle_ip(ip):
+    """The bucket a client's attempts are counted in: IPv4 as is, IPv6 by its /64 network (one household or
+    device can rotate through billions of addresses inside it), IPv4-mapped IPv6 as the IPv4 address."""
+    try:
+        addr = ipaddress.ip_address(ip)
+    except (ValueError, TypeError):
+        return ip
+    if addr.version == 6:
+        if addr.ipv4_mapped:
+            return str(addr.ipv4_mapped)
+        return str(ipaddress.ip_network(f"{addr}/64", strict=False))
+    return str(addr)
+
+
+def file_etag(path, st):
+    """A cache validator from the file's content. Not its timestamp: a deploy can give every file the same
+    modification time, which would let a same-size edit be answered with 'not modified'."""
+    h = hashlib.sha1()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return '"' + h.hexdigest()[:20] + '"'
 
 
 class Throttle:
@@ -740,6 +776,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
                               real_ip=self.headers.get("X-Real-IP"),
                               vercel_forwarded=self.headers.get("X-Vercel-Forwarded-For"))
 
+    def throttle_ip(self):
+        return normalize_throttle_ip(self.client_ip())
+
     def audit(self, action, user_id=None, outcome="ok", detail=""):
         audit(action, user_id, outcome, detail, ip=self.client_ip())
 
@@ -809,7 +848,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         etag = None
         cache = "no-cache, no-store, must-revalidate"
         if static:   # assets revalidate by ETag; pages and the API are never stored
-            etag = f'"{st.st_mtime_ns:x}-{size:x}"'
+            etag = file_etag(full, st)
             cache = "no-cache"
             inm = self.headers.get("If-None-Match")
             if inm and (inm.strip() == "*" or etag in [t.strip() for t in inm.split(",")]):
@@ -1121,7 +1160,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             raise ApiError(400, "Enter an email like name@example.com.")
         if not isinstance(pw, str) or not utf8_ok(pw) or not (8 <= len(pw) <= 200):
             raise ApiError(400, "Use at least 8 characters.")
-        ip = self.client_ip()
+        ip = self.throttle_ip()
         if not self.server.throttle.reserve_signup(ip):
             self.audit("signup", None, "throttled")
             raise ApiError(429, "Too many new accounts from here. Try again later.")
@@ -1141,7 +1180,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         email = d.get("email")
         email = email.strip().lower() if isinstance(email, str) and utf8_ok(email) else ""
         pw = d.get("password") if isinstance(d.get("password"), str) else ""
-        ip = self.client_ip()
+        ip = self.throttle_ip()
         if not self.server.throttle.reserve(email, ip):   # reserved before the hash; released on success
             self.audit("login", None, "throttled")
             raise ApiError(429, "Too many tries. Wait 15 minutes, then try again.")
@@ -1170,7 +1209,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pw = self.read_json().get("password")
         if not isinstance(pw, str) or not pw:
             raise ApiError(400, "Enter your password to confirm.")
-        ip = self.client_ip()
+        ip = self.throttle_ip()
         if not self.server.throttle.reserve(user["email"], ip):
             self.audit("delete_account", user["id"], "throttled")
             raise ApiError(429, "Too many tries. Wait 15 minutes, then try again.")
@@ -1201,7 +1240,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             raise ApiError(400, "Enter your current password.")
         if not isinstance(new_pw, str) or not utf8_ok(new_pw) or not 8 <= len(new_pw) <= 200:
             raise ApiError(400, "Use a new password of 8 to 200 characters.")
-        ip = self.client_ip()
+        ip = self.throttle_ip()
         if not self.server.throttle.reserve(user["email"], ip):
             self.audit("change_password", user["id"], "throttled")
             raise ApiError(429, "Too many tries. Wait 15 minutes, then try again.")
