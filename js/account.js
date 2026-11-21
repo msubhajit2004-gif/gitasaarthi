@@ -20,7 +20,7 @@
     if (opts && opts.keepalive) init.keepalive = true;
     return fetch(url, init).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (data) {
-        if (!r.ok) { var e = new Error(data.error || ("HTTP " + r.status)); e.status = r.status; throw e; }
+        if (!r.ok) { var e = new Error(data.error || ("HTTP " + r.status)); e.status = r.status; e.body = data; throw e; }
         return data;
       });
     });
@@ -28,7 +28,7 @@
 
   var rawSet = Storage.prototype.setItem;
   var rawRemove = Storage.prototype.removeItem;
-  var PENDING_KEY = "gitasaarthi_pending", GEMINI_KEY = "gitasaarthi_gemini_config", OWNER_KEY = "gitasaarthi_account";
+  var SYNC_PREFIX = "gitasaarthi_sync_", PENDING_KEY = "gitasaarthi_pending", GEMINI_KEY = "gitasaarthi_gemini_config", OWNER_KEY = "gitasaarthi_account";
   // pending: items changed here but not yet saved to the account. Kept in localStorage so a closed tab,
   // a failed request or a restart cannot lose them. An item leaves it only after its PUT succeeded.
   var pending = loadPending(), timer = null, touched = {}, hydrated = false, inflight = {}, active = [];
@@ -51,6 +51,23 @@
   function readLocal(storageKey) {
     try { var v = localStorage.getItem(storageKey); return v == null ? null : JSON.parse(v); } catch (e) { return null; }
   }
+  // Per item: {rev, base} = the server's revision we last saw and the value it had then (the merge's common ancestor).
+  function getRec(item) {
+    try {
+      var r = JSON.parse(localStorage.getItem(SYNC_PREFIX + item) || "null");
+      return r && typeof r === "object" ? r : null;
+    } catch (e) { return null; }
+  }
+  function setRec(item, rev, base) {
+    try { rawSet.call(localStorage, SYNC_PREFIX + item, JSON.stringify({ rev: typeof rev === "number" ? rev : null, base: base === undefined ? null : base })); } catch (e) {}
+  }
+  function rmRec(item) { try { rawRemove.call(localStorage, SYNC_PREFIX + item); } catch (e) {} }
+  function merge3(item, base, local, server) {
+    return window.GSMerge ? window.GSMerge.merge3(item, base, local, server) : (local == null ? server : local);
+  }
+  function fireHydrated() {
+    try { window.dispatchEvent(new CustomEvent("gs:hydrated")); } catch (x) {}
+  }
   function saveFailed(item, e) {
     try { window.dispatchEvent(new CustomEvent("gs:save-failed", { detail: { item: item, status: e && e.status } })); } catch (x) {}
   }
@@ -64,21 +81,40 @@
     retryTimer = setTimeout(function () { retryTimer = null; flush(false); }, retryDelay);
     retryDelay = Math.min(retryDelay * 2, 60000);
   }
+  // One save. If the server's copy moved on (409), merge it with ours and send again (at most 3 sends per flush).
   function putItem(item, keepalive) {
-    var v = ver[item] || 0;
-    var value = readLocal(KEYS[item]);
-    var p = api("PUT", "/api/me/data/" + item, { value: value == null ? null : value }, { keepalive: !!keepalive }).then(function () {
-      retryDelay = 2000;
-      delete blocked[item];
-      if ((ver[item] || 0) === v) { delete pending[item]; storePending(); }   // changed again meanwhile: stays pending
-      if (!pendingCount()) saveOk();
-      return true;
-    }, function (e) {
-      if (e.status === 401) { toSignIn(); return false; }
-      saveFailed(item, e);
-      if (retryable(e)) scheduleRetry(); else blocked[item] = e.status;
-      return false;
-    });
+    function attempt(n) {
+      var v = ver[item] || 0, rec = getRec(item);
+      var value = readLocal(KEYS[item]);
+      var body = { value: value == null ? null : value };
+      if (rec && typeof rec.rev === "number") body.base_rev = rec.rev;
+      return api("PUT", "/api/me/data/" + item, body, { keepalive: !!keepalive }).then(function (res) {
+        setRec(item, res && res.rev, body.value);
+        retryDelay = 2000;
+        delete blocked[item];
+        if ((ver[item] || 0) === v) { delete pending[item]; storePending(); }   // changed again meanwhile: stays pending
+        if (!pendingCount()) saveOk();
+        return true;
+      }, function (e) {
+        if (e.status === 401) { toSignIn(); return false; }
+        if (e.status === 409 && e.body && e.body.code === "conflict" && n < 3) {
+          var cur = readLocal(KEYS[item]), merged = merge3(item, rec ? rec.base : null, cur, e.body.value);
+          if (JSON.stringify(merged) !== JSON.stringify(cur)) {
+            try {
+              if (merged == null) rawRemove.call(localStorage, KEYS[item]);
+              else rawSet.call(localStorage, KEYS[item], JSON.stringify(merged));
+            } catch (x) {}
+            fireHydrated();
+          }
+          setRec(item, e.body.rev, e.body.value === undefined ? null : e.body.value);
+          return attempt(n + 1);
+        }
+        saveFailed(item, e);
+        if (e.status === 409 || retryable(e)) scheduleRetry(); else blocked[item] = e.status;
+        return false;
+      });
+    }
+    var p = attempt(1);
     active.push(p);
     var done = function () { var i = active.indexOf(p); if (i >= 0) active.splice(i, 1); };
     p.then(done, done);
@@ -131,19 +167,39 @@
     location.href = "/login.html?next=" + encodeURIComponent(location.pathname + location.search + location.hash);
   }
 
-  // Copy the account's items into this browser (server wins, except items not yet saved from here).
+  // Copy the account's items into this browser. Items not yet saved from here are merged with the server's copy
+  // (and stay queued, to be saved on top of the server's revision); everything else takes the server's value.
   function hydrate(data, overwriteAll) {
     if (overwriteAll) { pending = {}; touched = {}; storePending(); }
+    var supportsRevs = !!(data && data._rev && typeof data._rev === "object");
+    var revs = supportsRevs ? data._rev : {}, merged = false;
     Object.keys(KEYS).forEach(function (item) {
-      if (pending[item] || (!overwriteAll && touched[item])) return;
       var has = Object.prototype.hasOwnProperty.call(data, item) && data[item] != null;
-      if (has) rawSet.call(localStorage, KEYS[item], JSON.stringify(data[item]));
-      else if (overwriteAll) rawRemove.call(localStorage, KEYS[item]);
+      // A server that sends revisions and has nothing for this item means "revision 0": the first save must say so,
+      // or it would overwrite what another device saves in the meantime.
+      var rev = typeof revs[item] === "number" ? revs[item] : (supportsRevs ? 0 : null), rec = getRec(item);
+      if (!overwriteAll && rec && rev !== null && typeof rec.rev === "number" && rev < rec.rev) return;   // an older reply than what we saved
+      if (pending[item]) {
+        var local = readLocal(KEYS[item]), m = merge3(item, rec ? rec.base : null, local, has ? data[item] : null);
+        try {
+          if (m == null) rawRemove.call(localStorage, KEYS[item]);
+          else rawSet.call(localStorage, KEYS[item], JSON.stringify(m));
+        } catch (e) {}
+        if (JSON.stringify(m) !== JSON.stringify(local)) merged = true;
+        setRec(item, rev, has ? data[item] : null);
+        return;
+      }
+      if (!overwriteAll && touched[item] && rev === null) return;
+      if (has) { rawSet.call(localStorage, KEYS[item], JSON.stringify(data[item])); setRec(item, rev, data[item]); }
+      else if (overwriteAll) { rawRemove.call(localStorage, KEYS[item]); if (rev !== null) setRec(item, rev, null); else rmRec(item); }
+      else if (rev !== null) setRec(item, rev, null);
     });
+    if (merged) fireHydrated();
+    if (pendingCount() && hydrated) { clearTimeout(timer); timer = setTimeout(function () { flush(false); }, 400); }
   }
   // Everything that belongs to the account on this browser (plus any leftover old Gemini key).
   function clearAccountKeys() {
-    Object.keys(KEYS).forEach(function (item) { rawRemove.call(localStorage, KEYS[item]); });
+    Object.keys(KEYS).forEach(function (item) { rawRemove.call(localStorage, KEYS[item]); rmRec(item); });
     try { rawRemove.call(localStorage, GEMINI_KEY); rawRemove.call(localStorage, PENDING_KEY); } catch (e) {}
     pending = {}; touched = {};
   }
@@ -170,7 +226,7 @@
     try { owner = localStorage.getItem(OWNER_KEY); } catch (e) {}
     // a different person used this browser before: drop their items and unsaved queue
     if (owner !== null && owner !== String(me.id)) clearAccountKeys();
-    else if (owner === null) { pending = {}; storePending(); touched = {}; }
+    else if (owner === null) { pending = {}; storePending(); touched = {}; Object.keys(KEYS).forEach(rmRec); }
     try { rawSet.call(localStorage, OWNER_KEY, String(me.id)); } catch (e) {}
     hydrated = true;
     Array.prototype.forEach.call(document.querySelectorAll("[data-account-name]"), function (n) { n.textContent = me.name; });

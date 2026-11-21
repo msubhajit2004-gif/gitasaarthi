@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS user_data (
   key TEXT NOT NULL CHECK (key IN ('practice', 'moods', 'journal', 'last')),
   value TEXT NOT NULL,
   updated_at TEXT NOT NULL,
+  rev INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, key)
 );
 CREATE TABLE IF NOT EXISTS user_secrets (
@@ -282,6 +283,11 @@ def init_db(db_path):
     try:
         conn.execute("PRAGMA journal_mode = WAL")
         conn.executescript(SCHEMA)
+        try:   # databases created before revisions existed: add the column, keep every row (rev 0)
+            conn.execute("ALTER TABLE user_data ADD COLUMN rev INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.Error as e:
+            if "duplicate column" not in str(e).lower():
+                raise
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
         conn.commit()
     finally:
@@ -1144,13 +1150,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if route == ("POST", "/api/me/sessions/revoke"):
                 return self.api_revoke_sessions(conn, user)
             if route == ("GET", "/api/me/data"):
-                rows = conn.execute("SELECT key, value FROM user_data WHERE user_id = ?", (user["id"],)).fetchall()
-                out = {}
+                rows = conn.execute("SELECT key, value, rev FROM user_data WHERE user_id = ?", (user["id"],)).fetchall()
+                out, revs = {}, {}
                 for r in rows:
+                    revs[r["key"]] = r["rev"]
                     try:
                         out[r["key"]] = strict_loads(r["value"])
                     except (ValueError, RecursionError):
                         self.audit("data_read", user["id"], "corrupt", f"key={r['key']}")
+                out["_rev"] = revs
                 return self.send_json(200, out)
             if self.command == "PUT" and path.startswith("/api/me/data/"):
                 return self.api_put_data(conn, user, path.rsplit("/", 1)[1])
@@ -1302,11 +1310,44 @@ class Handler(http.server.BaseHTTPRequestHandler):
             text.encode("utf-8")
         except (ValueError, RecursionError):
             raise ApiError(400, "That contains values that cannot be saved.")
-        conn.execute("INSERT INTO user_data (user_id, key, value, updated_at) VALUES (?,?,?,?) "
-                     "ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-                     (user["id"], key, text, iso(now_utc())))
-        conn.commit()
-        return self.send_json(200, {"ok": True})
+        base = d.get("base_rev")
+        if "base_rev" in d and (type(base) is not int or base < 0):
+            raise ApiError(400, "That does not look like the right kind of data.")
+        uid, stamp = user["id"], iso(now_utc())
+        if "base_rev" not in d:      # legacy last-write-wins, still counted
+            conn.execute("INSERT INTO user_data (user_id, key, value, updated_at, rev) VALUES (?,?,?,?,1) "
+                         "ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value, "
+                         "updated_at = excluded.updated_at, rev = user_data.rev + 1", (uid, key, text, stamp))
+            conn.commit()
+            row = conn.execute("SELECT rev FROM user_data WHERE user_id = ? AND key = ?", (uid, key)).fetchone()
+            return self.send_json(200, {"ok": True, "rev": row["rev"]})
+        won = False
+        if base == 0:                # first save: the primary key arbitrates a race
+            try:
+                conn.execute("INSERT INTO user_data (user_id, key, value, updated_at, rev) VALUES (?,?,?,?,1)",
+                             (uid, key, text, stamp))
+                won = True
+            except sqlite3.IntegrityError:
+                conn.rollback()
+        else:                        # compare-and-swap on the stored rev
+            cur = conn.execute("UPDATE user_data SET value = ?, updated_at = ?, rev = rev + 1 "
+                               "WHERE user_id = ? AND key = ? AND rev = ?", (text, stamp, uid, key, base))
+            won = cur.rowcount == 1
+        if won:
+            conn.commit()
+            return self.send_json(200, {"ok": True, "rev": base + 1})
+        conn.rollback()
+        row = conn.execute("SELECT value, rev FROM user_data WHERE user_id = ? AND key = ?", (uid, key)).fetchone()
+        value, rev = None, 0
+        if row:
+            rev = row["rev"]
+            try:
+                value = strict_loads(row["value"])
+            except (ValueError, RecursionError):
+                value = None
+        self.audit("data_save", uid, "conflict", f"key={key}")
+        return self.send_json(409, {"error": "Another device saved newer data. Merge and save again.",
+                                    "code": "conflict", "value": value, "rev": rev})
 
     # -- Gemini (the key lives encrypted on the server; the browser never sees it)
     def api_gemini_settings(self, conn, user):

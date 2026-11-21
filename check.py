@@ -79,6 +79,7 @@ def main():
     js_syntax()
     if "--e2e" in sys.argv[1:]:
         run("Browser smoke test", ["node", "tests/e2e_smoke.mjs"])
+        run("Two devices, one account", ["node", "tests/e2e_two_devices.mjs"])
     else:
         print("\n(browser smoke test skipped; pass --e2e to run it)")
 

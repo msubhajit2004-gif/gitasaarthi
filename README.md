@@ -73,6 +73,8 @@ That runs every `tests/test_*.py` suite on SQLite, then the server suite again a
 
 The live site runs as one Vercel Python function (`api/index.py`) with its data in Turso. Local runs and the tests keep using SQLite.
 
+Each saved item (journal, moods, practice, last) carries a revision number. `PUT /api/me/data/<key>` accepts an optional `base_rev`; if another device saved since, the server answers 409 with code `conflict`, the stored value and `rev`, and writes nothing. Existing databases gain the `rev` column automatically at start-up.
+
 Put the database next to the function. `vercel.json` pins the function to `iad1` (Washington, D.C., AWS us-east-1); a Hobby project runs in one region. Each request makes several database round trips, so a Turso database on another continent makes every sign-in seconds slower. Run `turso db locations`, pick the location nearest Washington, D.C. (AWS us-east-1), and create the database there (for example in a group made with `turso group create <group> --location <code>`, then `turso db create <db> --group <group>`). If the database has to live elsewhere, change `regions` in `vercel.json` to the Vercel region nearest it.
 
 Set these environment variables in the Vercel project:

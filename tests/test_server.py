@@ -358,6 +358,7 @@ class ServerTest(unittest.TestCase):
         conn.close()
         st, _, got = a.req("GET", "/api/me/data")
         self.assertEqual(st, 200)
+        got.pop("_rev", None)
         self.assertEqual(got, {"last": {"x": 1}})
 
     def test_throttle_unit(self):

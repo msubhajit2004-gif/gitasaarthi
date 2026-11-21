@@ -52,8 +52,8 @@ def build_source(tmp, old_key, corrupt=False):
     c.execute("INSERT INTO users(id, email, name, password_hash, role, created_at, last_active_at) "
               "VALUES (?,?,?,?,?,?,?)",
               (7, "ravi@example.com", "Ravi", server.hash_password("battery staple 2"), "user", now, now))
-    c.execute("INSERT INTO user_data VALUES (3, 'journal', ?, ?)", (f'[{{"text": "{JOURNAL}"}}]', now))
-    c.execute("INSERT INTO user_data VALUES (7, 'moods', '[1,2,3]', ?)", (now,))
+    c.execute("INSERT INTO user_data (user_id, key, value, updated_at) VALUES (3, 'journal', ?, ?)", (f'[{{"text": "{JOURNAL}"}}]', now))
+    c.execute("INSERT INTO user_data (user_id, key, value, updated_at) VALUES (7, 'moods', '[1,2,3]', ?)", (now,))
     c.execute("INSERT INTO events(id, user_id, type, topic, created_at, reviewed_at, reviewed_by) "
               "VALUES (11, 7, 'crisis_shown', 'grief', ?, ?, 3)", (now, now))
     c.execute("INSERT INTO events(id, user_id, type, topic, created_at) VALUES (12, 3, 'conversation', 'anger', ?)",
@@ -211,10 +211,10 @@ class CopyBase:
         hosted_hash = server.hash_password("hosted pw 8")
         self.dst_exec("INSERT INTO users(id, email, name, password_hash, role, created_at) VALUES (8, ?, 'H', ?, "
                       "'user', 'x')", ("hosted8@example.com", hosted_hash))
-        self.dst_exec("INSERT INTO user_data VALUES (8, 'journal', 'hosted journal', 'x')")
+        self.dst_exec("INSERT INTO user_data (user_id, key, value, updated_at) VALUES (8, 'journal', 'hosted journal', 'x')")
         self.src_exec(src, "INSERT INTO users(id, email, name, password_hash, role, created_at) VALUES (8, ?, 'L', "
                            "'scrypt$local', 'admin', 'x')", ("local8@example.com",))
-        self.src_exec(src, "INSERT INTO user_data VALUES (8, 'journal', 'local journal', 'zzzz')")
+        self.src_exec(src, "INSERT INTO user_data (user_id, key, value, updated_at) VALUES (8, 'journal', 'local journal', 'zzzz')")
         msg = self.assert_refused(src)
         self.assertIn("8", msg)
         self.assertEqual(self.dst_all("SELECT email, password_hash, role FROM users WHERE id = 8"),
@@ -266,7 +266,7 @@ class CopyBase:
             r.commit()
         finally:
             r.close()
-        self.src_exec(src, "INSERT INTO user_data VALUES (7, 'journal', 'written locally later', 'zzzz')")
+        self.src_exec(src, "INSERT INTO user_data (user_id, key, value, updated_at) VALUES (7, 'journal', 'written locally later', 'zzzz')")
         counts = self.run_copy(src)
         self.assertEqual(self.dst_all("SELECT id FROM users"), [(3,)])
         self.assertEqual(self.dst_all("SELECT COUNT(*) FROM user_data WHERE user_id = 7"), [(0,)])

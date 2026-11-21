@@ -158,7 +158,23 @@ Return ONLY the raw JSON string, without markdown formatting or code fences.`;
       }
     };
 
-    const data = await this._api("POST", "/api/gemini/generate", { model: modelName, ...payload });
+    // Models differ in which thinking settings they accept. If Google answers 400 to ours, send the request again
+    // without it, and remember that for this model so the next reply does not pay for a failed try.
+    this.noThinkingConfig = this.noThinkingConfig || {};
+    const wantsThinking = !!payload.generationConfig.thinkingConfig && !this.noThinkingConfig[modelName];
+    const send = (withThinking) => {
+      const generationConfig = { ...payload.generationConfig };
+      if (!withThinking) delete generationConfig.thinkingConfig;
+      return this._api("POST", "/api/gemini/generate", { model: modelName, ...payload, generationConfig });
+    };
+    let data;
+    try {
+      data = await send(wantsThinking);
+    } catch (e) {
+      if (!(wantsThinking && e && e.status === 400)) throw e;
+      this.noThinkingConfig[modelName] = true;
+      data = await send(false);
+    }
     const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
     if (!candidateText) {

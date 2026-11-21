@@ -1093,6 +1093,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderJournalList();
   // the account's journal arrives after the page loads: draw it again once it has
   if (window.GSAccount && window.GSAccount.ready) window.GSAccount.ready.then(function () { updateJournalBadge(); renderJournalList(); }).catch(function () {});
+  // another device's changes were merged in, or a late load finished: show what is saved now
+  window.addEventListener("gs:hydrated", function () { updateJournalBadge(); renderJournalList(); });
 
   // Export Journal to Markdown (.md)
   const exportJournalBtn = document.getElementById("export-journal-btn");

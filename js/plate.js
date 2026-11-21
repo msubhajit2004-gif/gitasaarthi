@@ -407,9 +407,11 @@
 /* After the account's items are copied in, redraw what was built from them. */
 (function () {
   if (!window.GSAccount || !window.GSAccount.ready) return;
-  window.GSAccount.ready.then(function () {
+  function refresh() {
     var old = document.getElementById("plate-last"); if (old) old.remove();
     if (window.__plateLast) window.__plateLast();
     if (window.__plateStreak) window.__plateStreak();
-  }).catch(function () {});
+  }
+  window.GSAccount.ready.then(refresh).catch(function () {});
+  window.addEventListener("gs:hydrated", refresh);   // a merge or a late load changed what is saved
 })();
