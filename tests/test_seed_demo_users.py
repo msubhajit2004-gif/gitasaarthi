@@ -175,14 +175,33 @@ class SeedDemoUsers(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertTrue(all(r[0] is None for r in rows))
 
-    def test_shared_scrypt_hash_verifies_and_is_never_printed(self):
+    def test_nobody_can_sign_in_as_a_demo_user_and_the_hash_is_never_printed(self):
+        """The demo accounts may sit on a live site: their password is random, never stored or shown, so no one can use them."""
         _, text = self.seed()
         hashes = {r[0] for r in self.q("select password_hash from users where id>4")}
         self.assertEqual(len(hashes), 1)
         h = hashes.pop()
-        self.assertTrue(server.verify_password("demo-password-2026", h))
+        for guess in ("demo-password-2026", "password", "quiet river 42", "", "example"):
+            self.assertFalse(server.verify_password(guess, h), guess)
         self.assertNotIn(h, text)
         self.assertNotIn("scrypt", text)
+
+    def test_the_password_is_different_on_every_run(self):
+        self.seed()
+        a = {r[0] for r in self.q("select password_hash from users where id>4")}
+        other = os.path.join(self.tmp.name, "other.db")
+        with mock.patch.dict(os.environ, NO_TURSO):
+            server.init_db(other)
+        run(["--target", "local", "--db", other, "--count", "5", "--seed", "3"])
+        c = sqlite3.connect(other)
+        b = {r[0] for r in c.execute("select password_hash from users")}
+        c.close()
+        self.assertTrue(a and b)
+        self.assertTrue(a.isdisjoint(b), "each run must use a fresh random password")
+
+    def test_the_source_has_no_fixed_demo_password(self):
+        src = open(os.path.join(ROOT, "scripts", "seed_demo_users.py"), encoding="utf-8").read()
+        self.assertNotIn("demo-password-2026", src)
 
     def test_no_messages_or_journals(self):
         self.seed()

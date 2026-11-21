@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import random
+import secrets
 import sys
 from datetime import timedelta
 
@@ -21,7 +22,6 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 import server  # noqa: E402
 
-DEMO_PASSWORD = "demo-password-2026"
 DOMAIN = "@example.org"
 DEFAULT_DB = os.path.join(ROOT, "demo-data", "demo.db")
 
@@ -153,7 +153,9 @@ def _remove(conn):
 
 
 def _insert(conn, people, rng, now):
-    pw_hash = server.hash_password(DEMO_PASSWORD)    # one hash for all: nobody is meant to sign in as them
+    # One random secret per run, hashed and then forgotten: it is never stored or printed, so nobody can sign in as a
+    # demo user (these accounts may sit on a live site).
+    pw_hash = server.hash_password(secrets.token_urlsafe(32))
     admin = conn.execute("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1").fetchone()
     admin_id = admin[0] if admin else None
     ids = []
@@ -218,7 +220,7 @@ def main(argv=None):
             summary["added"] = _insert(conn, people, rng, now)
         total = existing + summary["added"]
         print(f"Added {summary['added']} demo users ({args.target}); {total} {DOMAIN} users now. "
-              "They share one password and are not meant to be signed in as.")
+              "Their password is random and thrown away, so nobody can sign in as them.")
         return summary
     finally:
         if conn is not None:
