@@ -51,6 +51,7 @@
     const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
     $("today").textContent = now.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
     $("greeting").textContent = name ? `Good ${part}, ${name}.` : `Good ${part}.`;
+    if (me && me.role === "admin") $("admin-link").hidden = false;   // a convenience only: the server checks the role on every request
     if (name) { $("user-link").textContent = name; $("user-link").setAttribute("aria-label", `Your practice, signed in as ${name}`); }
 
     // Practice days: a day counts when Krishna gave a practice or Breathe was opened.

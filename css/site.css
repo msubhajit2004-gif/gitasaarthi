@@ -319,3 +319,5 @@ body { background: transparent; }
 .harbor-page .note a { display: inline-flex; align-items: center; min-height: 44px; }
 .auth #privacy-note { line-height: 1.6; }
 .auth #privacy-note a { display: inline; min-height: 0; }
+
+#admin-link[hidden] { display: none; }
