@@ -1,0 +1,2 @@
+window.GSAccount.ready.catch(function (e) { if (e && e.status === 401) return; var n = document.createElement("p"); n.setAttribute("role", "status"); n.textContent = "We could not load your saved items. Check your connection, then refresh the page."; (document.querySelector("main") || document.body).appendChild(n); });
+(function () { var f = document.getElementById("composer-form"); if (f) f.addEventListener("submit", function (e) { e.preventDefault(); }); })();

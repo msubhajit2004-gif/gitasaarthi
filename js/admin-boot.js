@@ -1,0 +1,1 @@
+window.GSAccount.ready.then(function (me) { return window.GSSite.admin(me); }).catch(function (e) { var p = document.getElementById("period"); if (p) p.textContent = "Could not load the figures: " + e.message; });

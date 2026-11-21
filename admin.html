@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Overview · GitaSaarthi admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Noto+Serif+Devanagari:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <script src="/js/theme-early.js?v=1"></script>
+  <link rel="stylesheet" href="css/site.css?v=27">
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+</head>
+<body class="admin">
+  <div class="page-wide">
+    <header class="site-header">
+      <a class="wordmark" href="admin.html"><span lang="hi">गीता सारथी</span><small>Admin</small></a>
+      <nav class="site-nav" aria-label="Admin">
+        <a class="link-plain" href="#overview">Overview</a>
+        <a class="link-plain" href="#review">Safety review</a>
+        <a class="link-plain" href="#users">Users</a>
+        <span class="muted" id="admin-name"></span>
+        <a class="link-plain" href="dashboard.html">Your dashboard</a>
+        <a class="link-plain" href="/" data-sign-out>Sign out</a>
+      </nav>
+    </header>
+
+    <main>
+      <h1 id="overview">Overview</h1>
+      <p class="period" id="period"></p>
+
+      <dl class="figures" id="figures"></dl>
+
+      <div class="split">
+        <section aria-labelledby="conv-title">
+          <h2 class="panel-title" id="conv-title">Conversations per day, last 28 days</h2>
+          <svg class="chart" id="conv-chart" viewBox="0 0 760 260" role="img" aria-labelledby="conv-desc"><desc id="conv-desc"></desc></svg>
+        </section>
+        <section aria-labelledby="feel-title">
+          <h2 class="panel-title" id="feel-title">Most chosen feelings this week</h2>
+          <ol class="bars" id="bars"></ol>
+        </section>
+      </div>
+
+      <section class="admin-section" aria-labelledby="review">
+        <div class="head">
+          <div>
+            <h2 class="section-title" id="review" style="margin-bottom:0">Needs review</h2>
+            <p class="sub">Times when crisis words were detected and Safe Harbor was shown. What was written is never stored; follow up with the person directly. Review each within 24 hours.</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Time</th><th>User</th><th>Signal</th><th>Status</th><th class="r"><span class="sr-only">Action</span></th></tr></thead>
+            <tbody id="review-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-section" aria-labelledby="users">
+        <div class="head">
+          <h2 class="section-title" id="users" style="margin-bottom:0">Users</h2>
+          <label><span class="sr-only">Search users</span><input class="search" id="user-search" type="search" placeholder="Search users"></label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Joined</th><th>Last active</th><th class="r">Streak</th><th>Role</th></tr></thead>
+            <tbody id="user-rows"></tbody>
+          </table>
+        </div>
+        <p class="pager num" id="pager"></p>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/account.js?v=3"></script>
+  <script src="js/curated_wisdom.js?v=31"></script>
+  <script src="js/site.js?v=8"></script>
+  <script src="/js/admin-boot.js?v=1"></script>
+</body>
+</html>

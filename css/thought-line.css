@@ -1,0 +1,45 @@
+/* ThoughtLine: breathing mark, shimmering label, step trace. Colours follow the theme tokens. */
+.thought-line {
+  --tl-color: var(--text-3);
+  --tl-glyph: var(--accent);
+  --tl-breath: 1.6s;
+  --tl-trough: 0.55;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: var(--tl-color);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.thought-line__head { display: inline-flex; align-items: center; gap: 0.4em; white-space: nowrap; }
+.thought-line__glyph { display: inline-flex; flex: none; width: 1.1em; height: 1.1em; margin-right: 0.2em; color: var(--tl-glyph); opacity: 0.55; transition: opacity 350ms ease; }
+.thought-line[data-working] .thought-line__glyph { animation: tl-breath var(--tl-breath) cubic-bezier(0.77, 0, 0.175, 1) infinite; }
+.thought-line[data-working] .thought-line__label {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--tl-color) 50%, transparent) 30%, var(--text) 50%, color-mix(in srgb, var(--tl-color) 50%, transparent) 70%);
+  background-size: 250% 100%;
+  background-position: 125% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: tl-shimmer 1.8s linear infinite;
+}
+.thought-line__timer { font-variant-numeric: tabular-nums; opacity: 0.6; }
+.thought-line__sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.thought-line__steps { display: flex; flex-direction: column; gap: 0.45em; padding: 0.6em 0 0 1.6em; font-size: 0.875em; font-weight: 400; }
+.thought-line__steps:empty { display: none; }
+.thought-line__step { display: flex; align-items: center; gap: 0.5em; animation: tl-in 200ms cubic-bezier(0.23, 1, 0.32, 1); }
+.thought-line__mark { display: inline-grid; place-items: center; width: 1em; height: 1em; flex: none; opacity: 0.7; }
+.thought-line__pulse { display: block; width: 0.4em; height: 0.4em; border-radius: 50%; background: currentColor; animation: tl-breath 1.6s ease-in-out infinite; }
+.thought-line__step[data-done] .thought-line__step-text { opacity: 0.6; }
+
+@keyframes tl-breath { 0%, 100% { opacity: var(--tl-trough); } 50% { opacity: 1; } }
+@keyframes tl-shimmer { to { background-position: -125% 0; } }
+@keyframes tl-in { from { opacity: 0; transform: translateY(-4px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .thought-line[data-working] .thought-line__glyph, .thought-line__pulse { animation-duration: 2.4s; }
+  .thought-line[data-working] .thought-line__label { animation: none; background: none; color: var(--tl-color); -webkit-text-fill-color: currentColor; }
+  .thought-line__step { animation: none; }
+}

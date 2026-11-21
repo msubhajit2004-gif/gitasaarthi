@@ -1,0 +1,887 @@
+/* Plate: warm ink and paper palette, then the Plate layout. Built from the approved composition. */
+/* Round 2 shared palette: warm neutral ink and paper. No accent hue. */
+:root{
+  color-scheme:dark;
+  --deep:#10100e; --bg:#151412; --card:#1b1a17; --raised:#22201d;
+  --line:rgba(236,232,224,.12); --line-strong:rgba(236,232,224,.24);
+  --text:#ebe7df; --text-2:#b4aea2; --text-3:#8f897d;
+  --accent:#ebe7df; --accent-text:#ebe7df; --accent-hover:#ffffff; --accent-ink:#151412;
+  --accent-line:rgba(236,232,224,.34); --accent-wash:rgba(236,232,224,.06);
+  --page:#1b1a17; --positive:#8fbf9f; --negative:#e5897d; --negative-line:rgba(229,137,125,.45);
+  --glass-fill:transparent; --glass-ctrl:rgba(236,232,224,.05); --glass-ctrl-hover:rgba(236,232,224,.10);
+  --glass-edge:rgba(236,232,224,.16); --glass-hi:transparent; --glass-shadow:none;
+  --glass-modal:#1b1a17; --scrim:rgba(8,8,7,.72); --verse-fill:transparent;
+}
+[data-theme="light"]{
+  color-scheme:light;
+  --deep:#e6e3dc; --bg:#efede8; --card:#e8e5de; --raised:#e8e5de;
+  --line:rgba(35,33,29,.14); --line-strong:rgba(35,33,29,.30);
+  --text:#23211d; --text-2:#5a554c; --text-3:#6a655b;
+  --accent:#23211d; --accent-text:#23211d; --accent-hover:#000000; --accent-ink:#efede8;
+  --accent-line:rgba(35,33,29,.38); --accent-wash:rgba(35,33,29,.06);
+  --page:#e8e5de; --positive:#2f6b45; --negative:#a8321f; --negative-line:rgba(168,50,31,.45);
+  --glass-fill:transparent; --glass-ctrl:rgba(35,33,29,.05); --glass-ctrl-hover:rgba(35,33,29,.10);
+  --glass-edge:rgba(35,33,29,.18); --glass-hi:transparent; --glass-shadow:none;
+  --glass-modal:#efede8; --scrim:rgba(239,237,232,.78); --verse-fill:transparent;
+}
+
+/* ==========================================================================
+   Composition B: "Plate" .
+   Loaded after mockups/comps/shared/tokens.css. Uses only its tokens, plus
+   --serif and --deva from css/styles.css. No glass, no glow, no gradients.
+   Specificity is raised with an `html` prefix to beat css/styles.css
+   (including its patch layer) without editing it.
+   ========================================================================== */
+
+:root { --pl-col: 620px; --pl-left: clamp(0px, 8vw, 120px); }
+
+html, html body {
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.55;
+  font-weight: 400;
+}
+html button, html input, html textarea, html select { font-family: var(--serif); }
+html ::selection { background: var(--line-strong); }
+html :focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+.pl-sr, html .phase-indicator-pill {
+  position: absolute !important; width: 1px; height: 1px; margin: -1px; padding: 0;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---- kill glass, glow, decoration ---- */
+html .app-container::before { display: none !important; }
+html .click-spark { display: none !important; }
+html .modal-backdrop, html .modal-dialog, html .specular-button {
+  -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html .specular-button__light { display: none !important; }
+
+/* ==========================================================================
+   The column
+   ========================================================================== */
+html .app-container {
+  display: flex; flex-direction: column;
+  width: min(100vw, calc(var(--pl-col) + 48px)); max-width: none;
+  height: 100vh; height: 100dvh;
+  margin: 0 0 0 var(--pl-left); padding: 0 24px;
+  border: 0; border-radius: 0; box-shadow: none; background: none;
+  overflow: hidden;
+}
+
+/* header: wordmark left, Safe Harbor right */
+html .main-header {
+  order: 0; flex: none; flex-wrap: nowrap; gap: 16px;
+  padding: 28px 0 0; border: 0; align-items: center; justify-content: space-between;
+}
+html .brand-titles h1 { font: 500 22px/32px var(--deva); color: var(--text); }
+html .header-actions { width: auto; gap: 0; }
+html .nav-btn.safe-harbor-btn {
+  display: inline-flex; align-items: center; gap: 8px; height: auto; min-height: 44px; min-width: 0;
+  padding: 0; background: none; border: 0; border-radius: 0;
+  font: 500 16px/24px var(--serif); color: var(--text);
+}
+html .nav-btn.safe-harbor-btn:hover { background: none; color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+html .nav-btn.safe-harbor-btn svg { display: none; }
+html .nav-btn.safe-harbor-btn .btn-text { display: inline; }
+html .nav-btn.safe-harbor-btn::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--negative); flex: none;
+}
+html .emotional-compass-bar { display: none; }
+
+/* composer: one ruled line in the text flow */
+html .composer-wrapper { order: 2; flex: none; padding: 0; margin-top: 32px; }
+html .composer-form {
+  max-width: none; width: 100%; margin: 0; padding: 0; gap: 4px; align-items: center;
+  background: none; border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0; box-shadow: none;
+  transition: border-color .15s;
+}
+html .composer-form:focus-within { border-bottom-color: var(--text); }
+html .mic-voice-btn, html .send-msg-btn {
+  width: 44px; height: 44px; border-radius: 0; background: none; color: var(--text-2); box-shadow: none;
+}
+html .mic-voice-btn:hover, html .send-msg-btn:hover { background: none; color: var(--text); }
+html .mic-voice-btn.recording { background: none; color: var(--negative); }
+html .send-msg-btn.specular-button { color: var(--text-2); width: 44px; height: 44px; }
+html .send-msg-btn .i { transform: rotate(90deg); }
+html .mic-voice-btn .i, html .send-msg-btn .i { width: 20px; height: 20px; }
+html .chat-input-textarea {
+  padding: 10px 4px; font: 400 20px/24px var(--serif); color: var(--text); caret-color: var(--text);
+}
+html .chat-input-textarea::placeholder { color: var(--text-3); }
+
+/* ---- welcome state: one flow, header / lead / line / feelings / verse / colophon ---- */
+html .app-container:has(#welcome-hero-card:not([style*="none"])) { overflow-y: auto; overflow-x: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+html .app-container:has(#welcome-hero-card:not([style*="none"]))::-webkit-scrollbar { display: none; }
+html .app-container:has(#welcome-hero-card:not([style*="none"])) .stage,
+html .app-container:has(#welcome-hero-card:not([style*="none"])) .chat-viewport,
+html .app-container:has(#welcome-hero-card:not([style*="none"])) #welcome-hero-card { display: contents !important; }
+
+html .plate-lead {
+  order: 1; flex: none; max-width: 14em; margin-top: clamp(32px, 9vh, 88px);
+  font: 400 34px/42px var(--serif); letter-spacing: -.01em; color: var(--text); text-wrap: balance;
+}
+html .plate-feel {
+  order: 3; flex: none; margin-top: 32px; font: 400 20px/36px var(--serif); color: var(--text-3);
+}
+html .plate-feel .compass-chip, html .plate-feel .plate-more {
+  display: inline; height: auto; min-height: 0; padding: 0; margin: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+  font: inherit; color: var(--text); text-transform: lowercase;
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 5px; text-decoration-thickness: 1px;
+  transition: text-decoration-color .15s;
+}
+html .plate-feel .plate-more { color: var(--text-2); text-transform: none; }
+html .plate-feel .compass-chip:hover, html .plate-feel .compass-chip:focus-visible,
+html .plate-feel .plate-more:hover, html .plate-feel .plate-more:focus-visible { background: none; color: var(--text); text-decoration-color: currentColor; }
+html .plate-feel .compass-chip.active { background: none; }
+html .plate-feel .plate-sep { margin: 0 4px; color: var(--text-3); }
+html .plate-feel-lead { margin-right: 4px; }
+
+html .welcome-suggested-prompts, html .hero-how, html .hero-translit { display: none !important; }
+
+/* verse of the day: a quiet quote at the foot of the column */
+html .plate-verse { position: relative; z-index: 0; order: 4; flex: none; margin: auto 0 0; padding-top: 40px; max-width: 34rem; }
+html .hero-sanskrit { font: 400 22px/36px var(--deva); color: var(--text-2); max-width: none; text-wrap: pretty; white-space: pre-line; }
+html .hero-translation { margin-top: 12px; max-width: none; font: 400 16px/24px var(--serif); color: var(--text-2); text-wrap: pretty; }
+html .hero-ref { margin-top: 14px; font: 400 14px/20px var(--serif); color: var(--text-3); }
+
+/* colophon: the pages and settings as one line of small type */
+html .plate-colophon { position: relative; z-index: 5; order: 5; flex: none; padding: 24px 0 28px; margin-top: 32px; font: 400 15px/22px var(--serif); color: var(--text-3); }
+html .plate-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0 24px; }
+html .plate-colophon .nav-btn, html .plate-colophon .audio-toggle-btn {
+  display: inline-flex; align-items: center; gap: 4px; width: auto; height: auto; min-width: 0; min-height: 36px; padding: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none; transform: none;
+  font: 400 15px/22px var(--serif); color: var(--text-2); white-space: nowrap;
+}
+html .plate-colophon .nav-btn:hover, html .plate-colophon .audio-toggle-btn:hover {
+  background: none; color: var(--text); text-decoration: underline; text-underline-offset: 4px;
+}
+html .plate-colophon .nav-btn svg, html .plate-colophon .audio-toggle-btn svg { display: none; }
+html .plate-colophon .nav-btn .btn-text { display: inline; }
+html .plate-colophon .badge-count { min-width: 0; font-size: 15px; color: var(--text-3); text-align: left; }
+html .plate-colophon #nav-theme-btn::before { content: "Light"; }
+html[data-theme="light"] .plate-colophon #nav-theme-btn::before { content: "Dark"; }
+html .plate-colophon #nav-settings-btn::before { content: "Settings"; }
+html .plate-colophon .audio-synthesizer-bar {
+  display: inline-flex; align-items: center; gap: 8px; height: auto; min-height: 32px; min-width: 0; padding: 0;
+  background: none; border: 0; border-radius: 0; box-shadow: none;
+}
+html .plate-colophon .audio-toggle-btn::before { content: "Ambience"; }
+html .plate-colophon .audio-state { display: inline; min-width: 0; font-size: 15px; color: var(--text-3); }
+html .plate-colophon .audio-synthesizer-bar.playing .audio-state,
+html .plate-colophon .audio-synthesizer-bar.playing .audio-toggle-btn { color: var(--text); background: none; }
+html .plate-colophon .audio-vis-canvas { display: none; }
+html .plate-colophon .audio-vol-slider { width: 64px; flex: none; min-width: 0; accent-color: var(--text); }
+html .plate-colophon .composer-meta-footer {
+  max-width: none; width: auto; margin: 16px 0 0; gap: 0 16px; justify-content: flex-start;
+  font: 400 13px/20px var(--serif); color: var(--text-3);
+}
+html .plate-colophon .composer-meta-footer > span:last-child { margin-left: 0; text-align: left; }
+html .plate-colophon .engine-pill { color: var(--text-3); }
+
+/* ==========================================================================
+   Conversation: Krishna's turn as a page in the column
+   ========================================================================== */
+html .chat-viewport { order: 1; padding: 32px 0 24px; gap: 40px; scrollbar-width: none; }
+html .chat-viewport::-webkit-scrollbar { display: none; }
+html .message-row { margin: 0; max-width: none; width: 100%; }
+html .user-row { justify-content: flex-start; }
+html .user-bubble {
+  max-width: none; padding: 0 0 0 16px; background: none; border: 0; border-left: 1px solid var(--line-strong);
+  border-radius: 0; font: 400 18px/28px var(--serif); color: var(--text-2);
+}
+html .krishna-counsel-card { gap: 24px; }
+html .counsel-header { justify-content: flex-start; }
+html .speaker-avatar-icon { display: none; }
+html .speaker-title { font: 500 14px/20px var(--serif); color: var(--text-3); letter-spacing: .04em; }
+html .krishna-ack-text, html .krishna-synthesis-text { font: 400 20px/32px var(--serif); color: var(--text); max-width: none; }
+html .krishna-inquiry-box { gap: 12px; max-width: none; }
+html .inquiry-q { font: 400 20px/32px var(--serif); }
+html .inquiry-q strong { font-weight: 400; }
+html .inquiry-q span { color: var(--text-3); width: 24px; }
+html .quick-pills-label { font: 400 14px/20px var(--serif); color: var(--text-3); }
+html .quick-pills-grid { flex-direction: column; flex-wrap: nowrap; gap: 0; margin-top: 8px; border-bottom: 1px solid var(--line); }
+html .interactive-pill-btn {
+  width: 100%; min-height: 44px; padding: 8px 0; background: none; border: 0; border-top: 1px solid var(--line);
+  border-radius: 0; font: 400 17px/28px var(--serif); color: var(--text-2); text-align: left;
+}
+html .interactive-pill-btn:hover { background: none; color: var(--text); }
+html .vedic-diagnosis-banner { max-width: none; }
+html .diagnosis-header { font: 400 14px/20px var(--serif); color: var(--text-3); }
+html .diagnosis-term { font: 500 18px/28px var(--serif); color: var(--text); }
+html .diagnosis-meaning { font: 400 16px/24px var(--serif); color: var(--text-2); }
+html .shloka-wisdom-box, html .daily-shloka-frame {
+  max-width: none; padding: 20px 0; background: none; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  border-radius: 0; text-align: left;
+}
+html .shloka-ref { font: 400 14px/20px var(--serif); color: var(--text-3); }
+html .shloka-sanskrit { font: 400 22px/36px var(--deva); color: var(--text); }
+html .shloka-translit { font: 400 15px/24px var(--serif); color: var(--text-3); }
+html .shloka-translation { font: 400 18px/28px var(--serif); border-top: 0; padding-top: 0; color: var(--text); }
+html .shloka-insight, html .daily-meditation-note, html .cbt-step-item { font: 400 16px/26px var(--serif); color: var(--text-2); }
+html .cbt-practice-box { max-width: none; }
+html .cbt-title { font: 500 17px/28px var(--serif); }
+html .krishna-closing-checkin { max-width: none; font: 400 18px/28px var(--serif); color: var(--text-2); }
+html .thought-line, html .thinking-indicator { font: 400 16px/24px var(--serif); color: var(--text-3); }
+html .thought-line[data-working] .thought-line__label {
+  background: none; -webkit-background-clip: border-box; background-clip: border-box;
+  color: var(--text-3); -webkit-text-fill-color: currentColor; animation: none;
+}
+html .thought-line__glyph { color: var(--text-3); }
+html .dot-flashing { background: var(--text-3); }
+html .type-caret::after { background: var(--text); }
+
+/* Listen / Copy / etc. as text links */
+html .card-action-toolbar { gap: 4px 24px; justify-content: flex-start; }
+html .left-actions, html .right-actions { gap: 0 24px; }
+html .krishna-counsel-card .action-pill-btn {
+  min-height: 32px; padding: 0; background: none; border: 0; border-radius: 0;
+  font: 400 15px/24px var(--serif); color: var(--text-2);
+  text-decoration: underline; text-underline-offset: 4px; text-decoration-color: var(--line-strong);
+}
+html .krishna-counsel-card .action-pill-btn:hover { background: none; color: var(--text); text-decoration-color: currentColor; }
+html .krishna-counsel-card .action-pill-btn.tts-btn.speaking { color: var(--text); border: 0; }
+
+/* ==========================================================================
+   Modals: solid surfaces, small radius, close on the title line
+   ========================================================================== */
+html .modal-backdrop { background: var(--scrim); }
+html .modal-dialog {
+  max-width: 560px; padding: 28px 32px 32px; background: var(--glass-modal);
+  border: 1px solid var(--line-strong); border-radius: 4px; box-shadow: none; transform: none;
+}
+html .modal-dialog.wide { max-width: 760px; }
+html .modal-close-btn {
+  top: 20px; right: 20px; width: 44px; height: 44px; border-radius: 0; background: none; color: var(--text-2);
+  font: 300 28px/1 var(--serif);
+}
+html .modal-close-btn:hover { background: none; color: var(--text); }
+html .modal-header { padding-right: 56px; margin-bottom: 24px; }
+html .modal-header h3 { font: 500 24px/32px var(--serif); }
+html .modal-header p, html .daily-shloka-calendar-pill { font: 400 16px/24px var(--serif); color: var(--text-2); }
+html .modal-dialog .action-pill-btn, html .journal-delete-btn {
+  min-height: 36px; padding: 0 16px; background: none; border: 1px solid var(--line-strong); border-radius: 4px;
+  font: 500 15px/24px var(--serif); color: var(--text);
+}
+html .modal-dialog .action-pill-btn:hover, html .journal-delete-btn:hover { background: var(--glass-ctrl-hover); }
+html .modal-dialog .action-pill-btn.primary { background: var(--text); border-color: var(--text); color: var(--accent-ink); }
+html .modal-dialog .action-pill-btn.primary:hover { background: var(--accent-hover); color: var(--accent-ink); }
+html .modal-dialog .action-pill-btn.danger, html .journal-delete-btn:hover { color: var(--negative); border-color: var(--negative-line); }
+html .modal-dialog .action-pill-btn:disabled { color: var(--text-3); border-color: var(--line); }
+html .daily-shloka-frame { margin-bottom: 24px; }
+html .pacer-tab-btn { border-radius: 4px; background: none; font-family: var(--serif); }
+html .pacer-tab-btn.active { background: none; border-color: var(--text); color: var(--text); }
+html .sacred-mandala-circle { background: none; border-color: var(--line-strong); }
+html .sacred-mandala-circle::before, html .sacred-mandala-circle::after { border-color: var(--line-strong); }
+html .mandala-mantra-text { color: var(--text-2); }
+html .mandala-seconds-count { font-family: var(--serif); }
+html .pacer-btn-primary, html .pacer-btn-primary.specular-button {
+  min-height: 44px; padding: 0 24px; background: var(--text); color: var(--accent-ink); border-radius: 4px; box-shadow: none; font-weight: 500;
+}
+html .journal-entry-card, html .hotline-card, html .safe-harbor-hero {
+  background: none; border: 1px solid var(--line); border-radius: 4px;
+}
+html .journal-entry-sanskrit { font-family: var(--deva); color: var(--text); }
+html .hotline-phone-link { font: 500 20px/28px var(--serif); color: var(--text); text-decoration: underline; text-underline-offset: 4px; }
+html .journal-user-note-area, html .settings-input { background: var(--bg); border-radius: 4px; font-family: var(--serif); }
+html .settings-value { color: var(--text-2); }
+html .settings-check, html .settings-range, html .grounding-step-item input { accent-color: var(--text); }
+
+/* ==========================================================================
+   Round 2 fixes
+   ========================================================================== */
+/* Single tagline: 'Curated wisdom, offline and private' (engine state) is hidden here;
+   the engine state shows in Settings. */
+html .plate-colophon .engine-pill { display: none !important; }
+
+/* Safe Harbor stays on one line and above everything */
+html .main-header { position: relative; z-index: 6; }
+html .nav-btn.safe-harbor-btn { min-height: 44px; white-space: nowrap; }
+
+/* Tappable feelings */
+html .plate-feel .compass-chip, html .plate-feel .plate-more {
+  text-decoration-color: var(--line-strong); text-underline-offset: 6px; text-decoration-thickness: 1px; cursor: pointer;
+}
+html .plate-feel .compass-chip:hover, html .plate-feel .plate-more:hover { text-decoration-thickness: 2px; }
+html .plate-feel .compass-chip:focus-visible, html .plate-feel .plate-more:focus-visible {
+  outline: 2px solid var(--text); outline-offset: 3px; text-decoration-color: currentColor;
+}
+
+/* Chat: solid header, clear of first question, thin token scrollbars */
+html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .main-header {
+  background: var(--bg); padding-bottom: 16px;
+}
+html .chat-viewport { padding-top: 40px; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+html .chat-viewport::-webkit-scrollbar { display: block; width: 6px; }
+html .chat-viewport::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+html .chat-viewport::-webkit-scrollbar-track { background: transparent; }
+
+/* Chat reply rows: leading arrow, hover/focus underline, focus ring */
+html .interactive-pill-btn { display: flex; align-items: baseline; gap: 12px; cursor: pointer; }
+html .interactive-pill-btn::before { content: "→"; color: var(--text-3); flex: none; transition: transform .15s, color .15s; }
+html .interactive-pill-btn:hover, html .interactive-pill-btn:focus-visible {
+  color: var(--text); text-decoration: underline; text-underline-offset: 5px; text-decoration-color: var(--line-strong);
+}
+html .interactive-pill-btn:hover::before, html .interactive-pill-btn:focus-visible::before { color: var(--text); transform: translateX(3px); }
+html .interactive-pill-btn:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+
+html .plate-colophon .nav-btn, html .plate-colophon .audio-toggle-btn { min-height: 44px; }
+html .plate-colophon .audio-synthesizer-bar { min-height: 44px; }
+html .plate-feel .compass-chip, html .plate-feel .plate-more { display: inline-flex; align-items: center; min-height: 44px; }
+html .action-pill-btn, html .card-action-toolbar button { min-height: 44px; }
+html .quick-pills-grid .interactive-pill-btn { min-height: 44px; }
+
+/* ambience: the state and volume appear only when they matter */
+html .plate-colophon .audio-state {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+html .plate-colophon .audio-synthesizer-bar.playing .audio-state {
+  position: static; width: auto; height: auto; overflow: visible; clip: auto;
+}
+html .plate-colophon .audio-vol-slider { width: 0; opacity: 0; margin: 0; transition: width 160ms ease, opacity 160ms ease; }
+html .plate-colophon .audio-synthesizer-bar:hover .audio-vol-slider,
+html .plate-colophon .audio-synthesizer-bar:focus-within .audio-vol-slider { width: 72px; opacity: 1; }
+
+/* modals: thin, token-coloured scrollbars instead of native grey */
+html .modal-backdrop, html .modal-dialog, html .journal-entries-list {
+  scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+}
+html .modal-backdrop::-webkit-scrollbar, html .modal-dialog::-webkit-scrollbar { width: 6px; }
+html .modal-backdrop::-webkit-scrollbar-thumb, html .modal-dialog::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+html .modal-backdrop::-webkit-scrollbar-track, html .modal-dialog::-webkit-scrollbar-track { background: transparent; }
+html .krishna-counsel-card .action-pill-btn, html .krishna-counsel-card .card-action-toolbar button { min-height: 44px; }
+
+/* ==========================================================================
+   Conversation additions: the user's own words, engine notes, crisis help
+   ========================================================================== */
+html .krishna-echo { font: 400 17px/26px var(--serif); color: var(--text-2); }
+html .engine-note { font: 400 13px/20px var(--serif); color: var(--text-3); }
+html .crisis-card {
+  padding: 20px 24px; border: 1px solid var(--negative-line); border-radius: 6px;
+  font: 400 16px/26px var(--serif); color: var(--text);
+}
+html .crisis-card p + p, html .crisis-card ul + p { margin-top: 12px; }
+html .crisis-card .crisis-lead { font-size: 18px; line-height: 28px; }
+html .crisis-card .crisis-lines { margin: 12px 0 0; padding: 0; list-style: none; }
+html .crisis-card .crisis-lines li + li { margin-top: 4px; }
+html .crisis-card a { color: var(--text); text-decoration: underline; text-underline-offset: 4px; display: inline-flex; min-height: 44px; align-items: center; }
+html .crisis-card .crisis-open { margin-top: 16px; }
+
+/* Carried over from the old styles.css layer (still needed by this layout) */
+html .app-container { position: relative; }
+html .welcome-hero-card { margin-top: 0; margin-left: 0; }
+
+/* ==========================================================================
+   Gold: the wordmark and bold text. Dark #d4b26a (9.1:1 on --bg), paper #6f531a (6.1:1)
+   ========================================================================== */
+:root { --gold: #d4b26a; }
+[data-theme="light"] { --gold: #6f531a; }
+html .brand-titles h1 { color: var(--gold); }
+html .diagnosis-term, html .cbt-title, html .modal-header h3,
+html .hotline-name, html .hotline-phone-link, html .safe-harbor-hero h4, html .grounding-box h4,
+html .grounding-step-item strong, html .shloka-ref strong, html .krishna-counsel-card strong:not(.inquiry-q strong),
+html .settings-label { color: var(--gold); }
+
+/* Sound: one volume button instead of the "Ambience" words; volume slider on hover or focus */
+html .plate-colophon .audio-toggle-btn::before { content: none; }
+html .plate-colophon .audio-toggle-btn svg { display: block; width: 20px; height: 20px; }
+html .plate-colophon .audio-toggle-btn { width: 44px; justify-content: center; color: var(--text-2); }
+html .plate-colophon .audio-synthesizer-bar.playing .audio-toggle-btn { color: var(--gold); }
+html .plate-colophon .audio-state,
+html .plate-colophon .audio-synthesizer-bar.playing .audio-state {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* The verse follows the feelings directly; spare height goes above the footer, not above the verse */
+html .plate-verse { margin: 0 0 32px; padding-top: 48px; }
+html .plate-colophon { margin-top: auto; }
+
+/* ==========================================================================
+   Gold, round 2: small, meaningful places. Still one accent, never on surfaces.
+   ========================================================================== */
+/* who is speaking, and the numbers of his questions */
+html .speaker-title { color: var(--gold); }
+html .inquiry-q span { color: var(--gold); }
+/* where a verse comes from */
+html .hero-ref, html .shloka-ref, html .journal-entry-ref, html .daily-shloka-calendar-pill { color: var(--gold); }
+/* the closing question Krishna asks */
+html .krishna-closing-checkin { color: var(--gold); }
+/* interaction: hover and focus turn gold */
+html :focus-visible { outline-color: var(--gold); }
+html .interactive-pill-btn:focus-visible { outline-color: var(--gold); }
+html .plate-feel .compass-chip:hover, html .plate-feel .compass-chip:focus-visible,
+html .plate-feel .plate-more:hover, html .plate-feel .plate-more:focus-visible { text-decoration-color: var(--gold); }
+html .plate-colophon .nav-btn:hover, html .plate-colophon .audio-toggle-btn:hover { color: var(--gold); text-decoration-color: var(--gold); }
+html .interactive-pill-btn:hover::before, html .interactive-pill-btn:focus-visible::before { color: var(--gold); }
+html .krishna-counsel-card .action-pill-btn:hover { color: var(--gold); text-decoration-color: var(--gold); }
+html ::selection { background: color-mix(in srgb, var(--gold) 30%, transparent); }
+/* the send arrow wakes up in gold once there is something to send */
+html .composer-form:has(.chat-input-textarea:not(:placeholder-shown)) .send-msg-btn,
+html .composer-form:has(.chat-input-textarea:not(:placeholder-shown)) .send-msg-btn.specular-button { color: var(--gold); }
+/* primary actions: gold with dark ink */
+html .modal-dialog .action-pill-btn.primary { background: var(--gold); border-color: var(--gold); color: var(--bg); }
+html .modal-dialog .action-pill-btn.primary:hover { background: var(--gold); filter: brightness(1.08); color: var(--bg); }
+html .pacer-btn-primary, html .pacer-btn-primary.specular-button { background: var(--gold) !important; color: var(--bg) !important; }
+/* the breathing circle and the thinking glyph */
+html .sacred-mandala-circle { border-color: var(--gold); }
+html .sacred-mandala-circle::before { border-color: color-mix(in srgb, var(--gold) 45%, transparent); }
+html .mandala-mantra-text, html .thought-line__glyph { color: var(--gold); }
+
+/* Fix: the hidden volume slider no longer leaves a gap after the volume icon */
+html .plate-colophon .audio-synthesizer-bar { gap: 0; }
+html .plate-colophon .audio-synthesizer-bar:hover, html .plate-colophon .audio-synthesizer-bar:focus-within { gap: 8px; }
+
+:root { --pl-left: clamp(0px, 10vw, 200px); }
+
+/* Hover, by kind instead of one underline everywhere:
+   feelings = underline thickens in gold; footer = colour only; reply rows = the arrow moves;
+   Listen / Copy = colour only, underline stays as it is */
+html .plate-colophon .nav-btn:hover, html .plate-colophon .audio-toggle-btn:hover { text-decoration: none; }
+html .plate-feel .compass-chip:hover, html .plate-feel .plate-more:hover { text-decoration-thickness: 2px; }
+html .krishna-counsel-card .action-pill-btn:hover { text-decoration-color: var(--line-strong); }
+html .interactive-pill-btn:hover { text-decoration: none; }
+
+/* The mayur pankh appears only in the intro now: no background copy behind the app */
+
+:root { --pl-left: max(24px, calc((100vw - var(--pl-col) - 48px) / 2)); }
+
+/* ==========================================================================
+   Home as an open book. The content sits in the middle of the height (no dead band
+   above the footer); on wide windows the question and the verse face each other
+   like two pages, with a thin rule for the spine.
+   ========================================================================== */
+html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-lead { margin-top: auto; padding-top: 32px; }
+html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-verse { margin-bottom: auto; }
+html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-colophon { margin-top: 48px; }
+
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto 1fr auto auto auto 1fr auto;
+    column-gap: 0;
+    width: min(100vw, 1248px);
+    margin: 0 auto; padding: 0 48px;
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .main-header { grid-column: 1 / -1; grid-row: 1; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-lead {
+    grid-column: 1; grid-row: 3; margin: 0; padding: 0 80px 0 0; max-width: 11em;
+    font-size: 52px; line-height: 60px; letter-spacing: -.015em;
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .composer-wrapper { grid-column: 1; grid-row: 4; margin: 48px 80px 0 0; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-feel { grid-column: 1; grid-row: 5; margin: 32px 80px 0 0; }
+  /* the right page: today's verse, the one rich thing on the screen */
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-verse {
+    grid-column: 2; grid-row: 3 / 6; align-self: center;
+    display: flex; flex-direction: column;
+    margin: 0; padding: 40px 0 40px 80px; max-width: none;
+    border-left: 1px solid var(--line);
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-ref {
+    order: -1; margin: 0 0 24px; font: 400 16px/24px var(--serif);
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-sanskrit {
+    font: 400 34px/56px var(--deva); color: var(--text); text-wrap: balance;
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-translit {
+    display: block !important; margin-top: 16px;
+    font: 400 16px/26px var(--serif); color: var(--text-3); white-space: pre-line;
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-translation {
+    margin-top: 24px; max-width: 30em; font: 400 20px/32px var(--serif); color: var(--text-2);
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-colophon {
+    grid-column: 1 / -1; grid-row: 7; margin-top: 48px;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+    border-top: 1px solid var(--line);
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-colophon .composer-meta-footer { margin: 0; }
+}
+html .plate-feel .plate-item { white-space: nowrap; }
+html .plate-feel .plate-item[hidden] { display: none; }
+
+/* ==========================================================================
+   Chat on wide windows: the conversation and a facing side page, same frame as home.
+   ========================================================================== */
+html .plate-aside { display: none; }
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: 0;
+    width: min(100vw, 1248px);
+    margin: 0 auto; padding: 0 48px;
+  }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .main-header { grid-column: 1 / -1; grid-row: 1; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .stage { grid-column: 1; grid-row: 2; min-height: 0; padding-right: 80px; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .composer-wrapper { grid-column: 1; grid-row: 3; margin-right: 80px; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-colophon {
+    grid-column: 1 / -1; grid-row: 4; margin-top: 32px;
+    display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;
+    border-top: 1px solid var(--line);
+  }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-colophon .composer-meta-footer { margin: 0; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside {
+    display: block; grid-column: 2; grid-row: 2 / 4; min-height: 0; overflow-y: auto;
+    margin-top: 40px; padding: 0 0 0 56px; border-left: 1px solid var(--line);
+    scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent;
+  }
+  html .aside-verse { margin: 0 0 40px; }
+  html .aside-ref { font: 400 15px/22px var(--serif); color: var(--gold); margin-bottom: 16px; }
+  html .aside-sa { font: 400 24px/40px var(--deva); color: var(--text); white-space: pre-line; text-wrap: balance; }
+  html .aside-en { margin-top: 16px; font: 400 17px/28px var(--serif); color: var(--text-2); text-wrap: pretty; }
+  html .aside-en::before { content: "“"; }
+  html .aside-en::after { content: "”"; }
+  html .aside-en:empty::before, html .aside-en:empty::after { content: none; }
+  html .aside-title { margin: 0 0 8px; padding-top: 32px; border-top: 1px solid var(--line); font: 500 16px/24px var(--serif); color: var(--text); }
+  html .aside-feelings { list-style: none; margin: 0; padding: 0; }
+  html .aside-feelings li[hidden] { display: none; }
+  html .aside-feel, html .aside-more {
+    display: flex; align-items: center; width: 100%; min-height: 40px; padding: 0; margin: 0;
+    background: none; border: 0; text-align: left; cursor: pointer;
+    font: 400 17px/24px var(--serif); color: var(--text-2);
+    text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 5px;
+    transition: color .15s, text-decoration-color .15s;
+  }
+  html .aside-feel:hover, html .aside-feel:focus-visible { color: var(--text); text-decoration-color: var(--gold); }
+  html .aside-feel[aria-current="true"] { color: var(--gold); }
+  html .aside-feel[aria-current="true"]::after { content: "this conversation"; margin-left: 12px; font-size: 14px; color: var(--text-3); text-decoration: none; }
+  html .aside-more { margin-top: 8px; font-size: 15px; color: var(--text-3); }
+  html .aside-more:hover, html .aside-more:focus-visible { color: var(--text); }
+  html .aside-feel:focus-visible, html .aside-more:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+}
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) { grid-template-columns: minmax(0, 1fr) minmax(320px, 420px); }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside { scrollbar-width: none; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside::-webkit-scrollbar { display: none; }
+  html .aside-en::before, html .aside-en::after { content: none; }
+  html .aside-sa { font-size: 21px; line-height: 36px; text-wrap: pretty; }
+  html .aside-verse { margin-bottom: 32px; }
+  html .aside-title { padding-top: 28px; }
+  html .aside-feelings { display: grid; grid-template-columns: 1fr 1fr; column-gap: 24px; }
+  html .aside-feel[aria-current="true"] { text-decoration-color: var(--gold); }
+  html .aside-feel[aria-current="true"]::after { content: none; }
+}
+
+/* ==========================================================================
+   Filling the space with real things: last conversation (home), practice + shortcuts (chat)
+   ========================================================================== */
+html .plate-last { order: 3; flex: none; margin-top: 24px; font: 400 17px/28px var(--serif); color: var(--text-3); }
+html .plate-last-topic { color: var(--text-2); }
+html .plate-last-btn {
+  display: inline; padding: 0; margin: 0; min-height: 0; background: none; border: 0; cursor: pointer;
+  font: inherit; color: var(--gold);
+  text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 5px; transition: text-decoration-color .15s;
+}
+html .plate-last-btn:hover, html .plate-last-btn:focus-visible { text-decoration-color: var(--gold); }
+html .plate-last-btn:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) { grid-template-rows: auto 1fr auto auto auto auto 1fr auto; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-last { grid-column: 1; grid-row: 6; margin: 32px 80px 0 0; padding-top: 24px; border-top: 1px solid var(--line); }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-verse { grid-row: 3 / 7; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-colophon { grid-row: 8; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside { display: flex; flex-direction: column; scrollbar-width: thin; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside::-webkit-scrollbar { display: block; width: 6px; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+  html .plate-aside > * { flex: none; }
+  html .aside-practice { order: 0; margin-bottom: 24px; }
+  html .aside-actions { order: 1; margin-bottom: 24px; }
+  html .aside-verse { order: 2; }
+  html .plate-aside > .aside-title { order: 3; }
+  html .aside-feelings { order: 4; }
+  html .aside-more { order: 5; }
+  /* once there is a practice, it leads; today's verse moves to the end */
+  html .plate-aside.has-practice .aside-verse { order: 9; margin: 32px 0 0; padding-top: 28px; border-top: 1px solid var(--line); }
+  html .aside-practice .aside-title { padding-top: 0; border-top: 0; }
+  html .aside-practice-name { margin: 0 0 8px; font: 400 15px/22px var(--serif); color: var(--gold); }
+  html .aside-steps { list-style: none; margin: 0; padding: 0; }
+  html .aside-step { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; cursor: pointer; font: 400 16px/24px var(--serif); color: var(--text-2); }
+  html .aside-step input { flex: none; width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--gold); cursor: pointer; }
+  html .aside-step input:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  html .aside-step.is-done span { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+  html .aside-count { margin: 8px 0 0; font: 400 14px/20px var(--serif); color: var(--text-3); font-variant-numeric: tabular-nums; }
+  html .aside-action {
+    display: flex; align-items: center; width: 100%; min-height: 44px; padding: 0; margin: 0;
+    background: none; border: 0; text-align: left; cursor: pointer;
+    font: 400 16px/24px var(--serif); color: var(--text);
+    text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 5px; transition: text-decoration-color .15s, color .15s;
+  }
+  html .aside-action:hover, html .aside-action:focus-visible { text-decoration-color: var(--gold); }
+  html .aside-action:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  html .aside-action:disabled { color: var(--text-3); text-decoration: none; cursor: default; }
+  html .aside-action[hidden], html .aside-practice[hidden] { display: none; }
+}
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .aside-step-text { display: flex; flex-direction: column; gap: 4px; }
+  html .aside-step-name { font: 500 16px/24px var(--serif); color: var(--text); }
+  html .aside-step-detail { font: 400 15px/22px var(--serif); color: var(--text-3); }
+  html .aside-step.is-done .aside-step-name { color: var(--text-3); text-decoration: line-through; text-decoration-color: var(--line-strong); }
+  html .aside-step.is-done span { text-decoration: none; }
+}
+
+/* ==========================================================================
+   Fill the window. The frame grows with the screen (no fixed 1248px box) and the
+   type scales with it, so a large window gets a larger page, not wider margins.
+   ========================================================================== */
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:has(#welcome-hero-card:not([style*="none"])),
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) {
+    width: 100vw; max-width: 1920px; padding: 0 clamp(48px, 6vw, 128px);
+  }
+  /* home */
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-lead {
+    max-width: 11em; font-size: clamp(48px, 3.5vw, 72px); line-height: 1.14; padding-right: clamp(48px, 5vw, 120px);
+  }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .composer-wrapper,
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-feel,
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-last { margin-right: clamp(48px, 5vw, 120px); }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .composer-wrapper { margin-top: clamp(40px, 4.5vh, 64px); }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .chat-input-textarea { font-size: clamp(20px, 1.25vw, 24px); line-height: 1.3; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-feel { font-size: clamp(20px, 1.3vw, 25px); line-height: 1.8; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-last { font-size: clamp(17px, 1vw, 19px); line-height: 1.6; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-verse { padding-left: clamp(56px, 5vw, 120px); }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-ref { font-size: clamp(16px, .95vw, 18px); }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-sanskrit { font-size: clamp(34px, 2.35vw, 46px); line-height: 1.6; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-translit { font-size: clamp(16px, .95vw, 18px); line-height: 1.6; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .hero-translation { max-width: 32em; font-size: clamp(20px, 1.25vw, 24px); line-height: 1.6; }
+  html .plate-chapter { margin-top: 20px; font: 400 clamp(15px, .9vw, 17px)/1.5 var(--serif); color: var(--text-3); }
+  html .plate-chapter i { font-style: normal; color: var(--text-2); }
+  /* chat: a wider facing page, the conversation keeps a readable measure */
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) { grid-template-columns: minmax(0, 1fr) minmax(380px, 38%); }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .stage { padding-right: clamp(48px, 4vw, 96px); }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .composer-wrapper { margin-right: clamp(48px, 4vw, 96px); }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .chat-viewport .message-row { max-width: 54rem; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-aside { padding-left: clamp(48px, 4vw, 96px); }
+  html .aside-feelings { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+  html .aside-sa { font-size: clamp(21px, 1.45vw, 28px); line-height: 1.65; }
+  html .aside-en { font-size: clamp(17px, 1vw, 19px); }
+  html .aside-steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); column-gap: 32px; }
+}
+
+/* the streak line under "last time" (home, every width) */
+html .plate-streak { display: block; margin-top: 4px; }
+html .plate-streak a { color: var(--gold); text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 5px; transition: text-decoration-color .15s; }
+html .plate-streak a:hover, html .plate-streak a:focus-visible { text-decoration-color: var(--gold); }
+html .plate-chapter { margin-top: 12px; font: 400 14px/20px var(--serif); color: var(--text-3); }
+html .plate-chapter i { font-style: normal; color: var(--text-2); }
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .plate-chapter { margin-top: 20px; font-size: clamp(15px, .9vw, 17px); line-height: 1.5; }
+}
+@media (min-width: 1100px) and (min-height: 600px) {
+  /* on a wide conversation the reply text grows a step, so long lines stay comfortable */
+  html .krishna-ack-text, html .krishna-synthesis-text, html .inquiry-q { font-size: clamp(20px, 1.15vw, 22px); line-height: 1.6; }
+  html .shloka-translation { font-size: clamp(18px, 1.05vw, 20px); line-height: 1.55; }
+}
+
+/* Wordmark: big enough to read as the name of the place, growing with the window */
+html .brand-titles h1 { font-size: 28px; line-height: 40px; letter-spacing: .01em; }
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .brand-titles h1 { font-size: clamp(30px, 1.9vw, 38px); line-height: 1.3; }
+}
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .nav-btn.safe-harbor-btn { font-size: clamp(16px, 1vw, 19px); gap: 10px; }
+  html .nav-btn.safe-harbor-btn::before { width: 9px; height: 9px; }
+}
+
+/* account links in the colophon read like the other links */
+html .plate-colophon a.nav-btn { text-decoration: none; }
+html .plate-colophon a.nav-btn:hover, html .plate-colophon a.nav-btn:focus-visible { color: var(--gold); }
+
+/* Chat: the verse is the centre of a reply; the commentary folds under it */
+html .shloka-wisdom-box { padding-block: 32px; }
+html .shloka-sanskrit { font-size: clamp(26px, 2.1vw, 40px); line-height: 1.65; }
+html .shloka-translation { font-size: clamp(19px, 1.25vw, 23px); line-height: 1.55; }
+html .shloka-more { margin-top: 16px; }
+html .shloka-more > summary {
+  display: inline-flex; align-items: center; min-height: 44px; cursor: pointer; list-style: none;
+  font: 400 16px/24px var(--serif); color: var(--text-2);
+  text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 5px;
+}
+html .shloka-more > summary::-webkit-details-marker { display: none; }
+html .shloka-more > summary:hover, html .shloka-more > summary:focus-visible { color: var(--gold); text-decoration-color: var(--gold); }
+html .shloka-more > summary:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+html .shloka-more[open] > summary { color: var(--text-3); }
+html .shloka-more .shloka-insight { margin-top: 8px; }
+
+/* Home: the feeling words show they are clickable before you hover */
+html .plate-feel .compass-chip { text-decoration-color: var(--line-strong); }
+html .plate-feel .compass-chip:hover, html .plate-feel .compass-chip:focus-visible { text-decoration-color: var(--gold); }
+
+/* Chat side page: practice, shortcuts and a breathing circle. The verse and the feelings list are gone from here. */
+html .plate-aside .aside-verse,
+html .plate-aside > .aside-title,
+html .plate-aside .aside-feelings,
+html .plate-aside .aside-more { display: none !important; }
+html .aside-breath { display: none; }
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .aside-breath { order: 10; display: flex; flex-direction: column; align-items: center; gap: 28px; margin: 48px 0 24px; padding-top: 40px; border-top: 1px solid var(--line); }
+  html .aside-orb {
+    width: clamp(120px, 9vw, 168px); aspect-ratio: 1; border-radius: 50%;
+    border: 1px solid var(--gold); background: none;
+    animation: gs-breathe 8s ease-in-out infinite;
+  }
+  html .aside-cue { position: relative; margin: 0; height: 28px; width: 100%; text-align: center; font: 400 18px/28px var(--serif); color: var(--text-2); }
+  html .aside-cue span { position: absolute; inset: 0; opacity: 0; animation: gs-cue 8s ease-in-out infinite; }
+  html .aside-cue .cue-out { animation-delay: 4s; }
+}
+@keyframes gs-breathe { 0%, 100% { transform: scale(.62); } 50% { transform: scale(1); } }
+@keyframes gs-cue { 0%, 5% { opacity: 0; } 15%, 40% { opacity: 1; } 50%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  html .aside-orb { animation: none; transform: scale(.8); }
+  html .aside-cue span { animation: none; }
+  html .aside-cue .cue-in { opacity: 1; }
+  html .aside-cue .cue-out { display: none; }
+}
+
+/* Chat only: no side page. The conversation, its input line and the footer, in one centred column. */
+html .plate-aside { display: none !important; }
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100vw, 920px); margin: 0 auto; padding: 0 48px;
+  }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .stage { grid-column: 1; padding-right: 0; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .composer-wrapper { grid-column: 1; margin-right: 0; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .plate-colophon { grid-column: 1; }
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) .chat-viewport .message-row { max-width: none; }
+}
+
+/* Reply as a designed moment: the verse is the centre, set apart by gold rules; the practice is a numbered list */
+html .shloka-wisdom-box {
+  text-align: center; margin: 40px 0; padding: 40px 0;
+  border-top: 1px solid var(--gold); border-bottom: 1px solid var(--gold); background: none;
+}
+html .shloka-wisdom-box .shloka-ref { margin-bottom: 20px; }
+html .shloka-wisdom-box .shloka-sanskrit { white-space: pre-line; text-wrap: balance; }
+html .shloka-wisdom-box .shloka-translit { margin-top: 16px; }
+html .shloka-wisdom-box .shloka-translation { max-width: 34em; margin: 24px auto 0; text-wrap: pretty; }
+html .shloka-more { text-align: center; }
+html .shloka-more .shloka-insight { text-align: left; max-width: 34em; margin: 8px auto 0; }
+
+html .vedic-diagnosis-banner .diagnosis-header, html .vedic-diagnosis-banner .diagnosis-term { display: inline; }
+html .vedic-diagnosis-banner .diagnosis-header::after { content: ": "; }
+html .vedic-diagnosis-banner .diagnosis-meaning { margin-top: 4px; }
+
+html .cbt-practice-box { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
+html .cbt-steps { list-style: none; counter-reset: cbt; margin: 12px 0 0; padding: 0; }
+html .cbt-steps .cbt-step-item { counter-increment: cbt; display: grid; grid-template-columns: 32px 1fr; padding: 12px 0; }
+html .cbt-steps .cbt-step-item::before { content: counter(cbt); grid-row: 1 / span 2; color: var(--gold); font: 400 20px/28px var(--serif); font-variant-numeric: tabular-nums; }
+html .cbt-step-name { grid-column: 2; font: 500 17px/26px var(--serif); color: var(--text); }
+html .cbt-step-detail { grid-column: 2; font: 400 16px/26px var(--serif); color: var(--text-2); }
+html .cbt-steps .cbt-step-item > .cbt-step-detail:only-child { grid-row: 1 / span 2; }
+
+/* Reply options: rows, without the repeated arrow */
+html .interactive-pill-btn::before { content: none; }
+html .interactive-pill-btn { gap: 0; }
+
+/* Home: more air between the feelings and the question, so the verse leads */
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-feel { margin-top: 48px; }
+}
+
+/* Chat fills the window (same frame as home and the dashboard); text grows with it */
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) {
+    width: 100vw; max-width: 1920px; margin: 0 auto; padding: 0 clamp(48px, 6vw, 128px);
+  }
+  html .krishna-ack-text, html .krishna-synthesis-text, html .inquiry-q { font-size: clamp(22px, 1.45vw, 28px); line-height: 1.6; }
+  html .interactive-pill-btn { font-size: clamp(18px, 1.1vw, 21px); }
+  html .shloka-wisdom-box .shloka-sanskrit { font-size: clamp(30px, 2.4vw, 46px); }
+  html .shloka-wisdom-box .shloka-translation { max-width: 40em; font-size: clamp(20px, 1.3vw, 25px); }
+  html .chat-input-textarea { font-size: clamp(20px, 1.3vw, 25px); }
+  html .cbt-step-name { font-size: clamp(17px, 1.15vw, 21px); }
+  html .cbt-step-detail { font-size: clamp(16px, 1.05vw, 19px); }
+}
+
+/* Full-width chat, readable lines: prose stays at a comfortable measure while the frame fills the window */
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .krishna-ack-text, html .krishna-synthesis-text, html .krishna-echo, html .vedic-diagnosis-banner,
+  html .krishna-closing-checkin, html .cbt-steps, html .inquiry-q, html .engine-note { max-width: 68rem; }
+}
+
+/* Footer: links spread across the full width, the note centred underneath (no gap in the middle) */
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container .plate-colophon {
+    display: block; text-align: center;
+  }
+  html .app-container .plate-colophon .plate-links { display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center; gap: 0 16px; width: 100%; }
+  html .app-container .plate-colophon .composer-meta-footer { justify-content: center; margin: 12px 0 0; width: 100%; }
+}
+html .plate-colophon .composer-meta-footer { justify-content: center; }
+
+/* ==========================================================================
+   Type and air (DESIGN.md update): Instrument Serif for headlines, a larger reading step,
+   wider margins, and a soft fade between pages.
+   ========================================================================== */
+:root { --display: "Instrument Serif", "Newsreader", Georgia, serif; }
+html .plate-lead { font-family: var(--display); font-weight: 400; letter-spacing: -.005em; }
+@media (min-width: 1100px) and (min-height: 600px) {
+  html .app-container:has(#welcome-hero-card:not([style*="none"])) .plate-lead { font-size: clamp(54px, 3.9vw, 80px); line-height: 1.08; }
+  html .app-container:has(#welcome-hero-card:not([style*="none"])),
+  html .app-container:not(:has(#welcome-hero-card:not([style*="none"]))) { padding: 0 clamp(64px, 8vw, 160px); }
+  html .krishna-ack-text, html .krishna-synthesis-text, html .inquiry-q { font-size: clamp(24px, 1.55vw, 30px); }
+}
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .2s; animation-timing-function: ease-out; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+
+/* Home: the "last time" and streak links meet the 44px target */
+html .plate-last-btn, html .plate-streak a { display: inline-flex; align-items: center; min-height: 44px; }
+html .plate-last { line-height: 1.4; }
+
+/* Phones and narrow windows: the frame is the full width, with no left offset */
+@media (max-width: 1099px) {
+  html .app-container { width: 100%; max-width: 100vw; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
+}
+
+/* Windows (Safe Harbor, Verse, Journal, Settings): no boxed cards, 44px buttons, verse on two lines */
+html .hotline-card, html .safe-harbor-hero, html .journal-entry-card { border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; padding: 20px 0; }
+html .safe-harbor-hero { padding-top: 0; border-top: 0; }
+html .emergency-hotlines-grid { gap: 0 48px; }
+html .hotline-card:last-child { border-bottom: 1px solid var(--line); }
+html .modal-dialog .action-pill-btn, html .journal-delete-btn, html .modal-dialog .nav-btn { min-height: 44px; }
+html .grounding-step-item { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+html #daily-shloka-modal .modal-dialog { max-width: 760px; }
+html #daily-shloka-modal .shloka-sanskrit { font-size: clamp(26px, 2vw, 34px); line-height: 1.6; white-space: pre-line; text-wrap: balance; }
+
+/* Quieter windows: plain-text breathing choices, a text link for export, no scroll arrows in the chat */
+html .pacer-mode-tabs { display: flex; gap: 32px; }
+html .pacer-tab-btn { border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: none; padding: 8px 0; min-height: 44px; text-align: left; color: var(--text-2); }
+html .pacer-tab-btn small { display: block; margin-top: 2px; font-size: 14px; color: var(--text-3); }
+html .pacer-tab-btn:hover, html .pacer-tab-btn:focus-visible { color: var(--text); }
+html .pacer-tab-btn.active { border-bottom-color: var(--gold); color: var(--text); }
+html #export-journal-btn, html #export-journal-btn.primary {
+  background: none; border: 0; border-radius: 0; padding: 0; min-height: 44px; color: var(--text-2);
+  text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 5px;
+}
+html #export-journal-btn:hover, html #export-journal-btn:focus-visible { color: var(--gold); text-decoration-color: var(--gold); background: none; }
+html .chat-viewport::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+/* Scrollbars: the standard properties would make Chrome ignore the rules below, so reset them and use the thin,
+   button-less webkit scrollbar everywhere (chat, windows) */
+html .chat-viewport, html .modal-backdrop, html .modal-dialog, html .journal-entries-list { scrollbar-width: auto; scrollbar-color: auto; }
+html .chat-viewport::-webkit-scrollbar, html .modal-backdrop::-webkit-scrollbar, html .modal-dialog::-webkit-scrollbar, html .journal-entries-list::-webkit-scrollbar { display: block; width: 6px; height: 6px; }
+html .chat-viewport::-webkit-scrollbar-button, html .modal-backdrop::-webkit-scrollbar-button, html .modal-dialog::-webkit-scrollbar-button, html .journal-entries-list::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+html .chat-viewport::-webkit-scrollbar-thumb, html .modal-backdrop::-webkit-scrollbar-thumb, html .modal-dialog::-webkit-scrollbar-thumb, html .journal-entries-list::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 3px; }
+html .chat-viewport::-webkit-scrollbar-track, html .modal-backdrop::-webkit-scrollbar-track, html .modal-dialog::-webkit-scrollbar-track, html .journal-entries-list::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- settings: account (ruled rows, text links, rose only for the delete warning) ---- */
+html .acct { margin-top: 8px; }
+html .acct-title { margin: 0 0 4px; font: 500 18px/1.4 var(--serif); color: var(--gold); }
+html .acct-row { display: flex; align-items: center; gap: 16px; min-height: 44px; padding: 4px 0; border-top: 1px solid var(--line); font: 400 16px/1.4 var(--serif); color: var(--text); }
+html .acct-row[hidden], html #gemini-key-entry[hidden], html #gemini-key-saved[hidden] { display: none; }
+html .acct-k { width: 72px; flex: none; color: var(--text-3); }
+html .acct-link { min-height: 44px; padding: 0; background: none; border: 0; font: inherit; color: var(--text-2); text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; cursor: pointer; transition: color 150ms cubic-bezier(.22,1,.36,1), text-decoration-color 150ms cubic-bezier(.22,1,.36,1); }
+html .acct-link:hover, html .acct-link:focus-visible, html #gs-save-warning a:hover { color: var(--gold); text-decoration-color: var(--gold); }
+html .acct-panel { display: grid; gap: 8px; justify-items: start; padding: 8px 0 16px; }
+html .acct-panel[hidden] { display: none; }
+html .acct-panel .settings-input { width: 100%; }
+html .acct-msg { margin: 0; font-size: 15px; color: var(--text-2); }
+html .acct-warn { margin: 0; font-size: 15px; line-height: 1.5; color: var(--negative); }
+html .acct-warn:empty { display: none; }
+html .acct-msg:empty { display: none; }
+html #gs-save-warning a { color: var(--text-2); text-decoration: underline; text-underline-offset: 4px; }

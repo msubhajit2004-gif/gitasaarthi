@@ -1,0 +1,1 @@
+window.GSAccount.ready.then(function (me) { window.GSSite.dashboard(me); }).catch(function () { var g = document.getElementById("greeting"); if (g) g.textContent = "We could not load your practice. Check your connection, then refresh the page."; });

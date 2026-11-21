@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in · GitaSaarthi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Noto+Serif+Devanagari:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <script src="/js/theme-early.js?v=1"></script>
+  <link rel="stylesheet" href="css/site.css?v=27">
+  <link rel="stylesheet" href="css/intro.css?v=52">
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+</head>
+<body class="login">
+  <script src="js/intro.js?v=54"></script>
+  <div class="page">
+    <header class="site-header">
+      <a class="wordmark" href="/" lang="hi">गीता सारथी</a>
+      <nav class="site-nav" aria-label="Site">
+        <a class="link-plain" href="/privacy.html">Privacy</a>
+        <a class="harbor" href="safe-harbor.html">Safe Harbor</a>
+      </nav>
+    </header>
+
+    <main class="auth" id="auth">
+      <h1 id="auth-title">Sign in</h1>
+      <p id="auth-lead">Your journal, streak and check-ins are kept here.</p>
+
+      <form id="auth-form" novalidate>
+        <div class="field" id="name-field" hidden>
+          <label for="name">Your name</label>
+          <input id="name" name="name" autocomplete="name">
+          <p class="hint" id="name-hint" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required>
+          <p class="hint" id="email-hint" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <div class="pw"><input id="password" name="password" type="password" autocomplete="current-password" required minlength="8"><button class="pw-toggle" id="pw-toggle" type="button" aria-controls="password" aria-pressed="false">Show</button></div>
+          <p class="hint" id="password-hint" aria-live="polite"></p>
+        </div>
+        <div class="row" id="forgot-row"><a class="link" href="#forgot" id="forgot-link">Forgot password</a></div>
+        <p class="forgot-note" id="forgot-note" hidden>Password reset by email is not set up yet. Ask the person who runs this GitaSaarthi to reset it for you.</p>
+        <p class="form-error" id="form-error" role="alert"></p>
+        <button class="btn btn-block" type="submit" id="auth-submit">Sign in</button>
+      </form>
+
+      <p class="alt" id="privacy-note" hidden>We store your name, email and the journal and check-ins you save. Details in the <a class="link" href="/privacy.html">privacy page</a>.</p>
+
+      <p class="alt" id="auth-alt">New here? <a class="link gold" href="#create" data-mode-link="create">Create an account</a></p>
+    </main>
+  </div>
+
+  <script src="/js/login.js?v=1"></script>
+</body>
+</html>

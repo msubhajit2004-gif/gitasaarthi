@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your practice · GitaSaarthi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Tiro+Devanagari+Sanskrit&family=Noto+Serif+Devanagari:wght@400;500&family=Instrument+Serif&display=swap" rel="stylesheet">
+  <script src="/js/theme-early.js?v=1"></script>
+  <link rel="stylesheet" href="css/site.css?v=27">
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+</head>
+<body class="dash">
+  <div class="page">
+    <header class="site-header">
+      <a class="wordmark" href="dashboard.html" lang="hi">गीता सारथी</a>
+      <nav class="site-nav" aria-label="Site">
+        <a class="link-plain" href="index.html">Talk to Krishna</a>
+        <a class="link-plain" href="index.html#journal">Journal</a>
+        <a class="link-plain gold" href="dashboard.html" id="user-link" data-account-name aria-label="Your practice, signed in">You</a>
+        <a class="harbor" href="safe-harbor.html">Safe Harbor</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="greet">
+        <p class="date" id="today"></p>
+        <h1 id="greeting">Good evening.</h1>
+      </section>
+
+      <section class="dash-section" aria-labelledby="streak-title">
+        <h2 class="section-title" id="streak-title">Practice streak</h2>
+        <p class="streak"><span class="big num" id="streak-now">0</span><span class="quiet" id="streak-unit">days in a row</span><span class="longest num" id="streak-best"></span></p>
+        <div class="days" id="days" role="img" aria-label=""></div>
+        <p class="practice-summary" id="practice-summary"></p>
+      </section>
+
+      <section class="dash-section" aria-labelledby="mood-title">
+        <h2 class="section-title" id="mood-title">Mood</h2>
+        <svg class="chart" id="mood-chart" viewBox="0 0 620 200" role="img" aria-labelledby="mood-desc"><desc id="mood-desc"></desc></svg>
+        <p class="trend" id="mood-trend"></p>
+        <fieldset class="checkin" id="checkin">
+          <legend>How are you feeling right now?</legend>
+          <div class="opts" id="checkin-opts"></div>
+          <p class="saved" id="checkin-saved" aria-live="polite"></p>
+        </fieldset>
+      </section>
+
+      <section class="dash-section" aria-labelledby="cont-title">
+        <h2 class="section-title" id="cont-title">Continue</h2>
+        <ul class="rows">
+          <li><a href="index.html"><b>Talk to Krishna</b><span id="last-topic">Start from what is weighing on you.</span></a></li>
+          <li><a href="index.html#breathe"><b>Breathe for a minute</b><span>Box breathing, four rounds, paced by a slow circle.</span></a></li>
+        </ul>
+      </section>
+
+      <section class="dash-section" aria-label="Today's verse">
+        <figure class="verse">
+          <figcaption class="ref" id="v-ref"></figcaption>
+          <p class="sa" lang="sa" id="v-sa"></p>
+          <p class="en" id="v-en"></p>
+        </figure>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <nav aria-label="Footer">
+        <a class="link-plain" href="index.html#breathe">Breathe</a>
+        <a class="link-plain" href="index.html#verse">Verse of the day</a>
+        <a class="link-plain" href="index.html#journal">Journal</a>
+        <a class="link-plain" href="/privacy.html">Privacy</a>
+        <a class="link-plain" href="/" id="sign-out" data-sign-out>Sign out</a>
+      </nav>
+      <p>Your journal and check-ins are kept in your account. Not a medical service.</p>
+    </footer>
+  </div>
+
+  <script src="js/account.js?v=3"></script>
+  <script src="js/curated_wisdom.js?v=31"></script>
+  <script src="js/site.js?v=8"></script>
+  <script src="/js/dashboard-boot.js?v=1"></script>
+</body>
+</html>
