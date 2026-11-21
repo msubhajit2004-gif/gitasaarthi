@@ -21,9 +21,10 @@ class AmbientAudioEngine {
     // Sa (C#3 equivalent tuned to 432Hz harmonic scale ~ 136.1 Hz - Cosmic Om Frequency)
     this.baseFreq = 136.1; // Sacred Om / 432Hz-aligned Earth vibration
 
-    // Background track: a recording that loops. If it cannot load or play,
-    // the synthesized tanpura drone below is used instead.
-    this.trackUrl = "audio/krishna.webm";
+    // Background track: by default none. The sound is the tanpura drone synthesized below, which is ours.
+    // To play a recording you have the rights to, put it in audio/ and set trackUrl to its path; it loops,
+    // and if it cannot load or play, the drone is used instead.
+    this.trackUrl = null;
     this.trackEl = null;
     this.trackFailed = false;
   }

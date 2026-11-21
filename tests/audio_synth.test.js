@@ -46,3 +46,17 @@ test("the older webkit-prefixed name is still used when it is all there is", () 
   assert.equal(engine.initContext(), true);
   assert.equal(made, 1);
 });
+
+// Music rights: the app ships only its own synthesized tanpura. A recording someone else made must not be
+// bundled or served. To use a track you have the rights to, set engine.trackUrl yourself.
+test("the engine does not default to a bundled recording", () => {
+  const engine = load({});
+  assert.ok(!engine.trackUrl, "trackUrl must be empty by default");
+});
+
+test("the repository ships no audio recordings", () => {
+  const dir = path.join(__dirname, "..", "audio");
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir) : [];
+  const recordings = files.filter((f) => /\.(webm|mp3|ogg|m4a|wav|flac|aac|opus)$/i.test(f));
+  assert.deepEqual(recordings, []);
+});

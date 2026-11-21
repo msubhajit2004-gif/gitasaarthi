@@ -592,18 +592,30 @@ class ServerTest(unittest.TestCase):
         self.assertIn("no-store", r.getheader("Cache-Control"))
 
     def test_audio_range(self):
-        r, body = self.raw_headers("/audio/krishna.webm", {"Range": "bytes=0-99"})
-        self.assertEqual(r.status, 206)
-        self.assertEqual(len(body), 100)
-        self.assertTrue(r.getheader("Content-Range").startswith("bytes 0-99/"))
-        self.assertEqual(r.getheader("Accept-Ranges"), "bytes")
-        r, body = self.raw_headers("/audio/krishna.webm", {"Range": "bytes=-10"})
-        self.assertEqual((r.status, len(body)), (206, 10))
-        r, _ = self.raw_headers("/audio/krishna.webm", {"Range": "bytes=999999999-"})
-        self.assertEqual(r.status, 416)
-        r, body = self.raw_headers("/audio/krishna.webm")
-        self.assertEqual(r.status, 200)
-        self.assertEqual(r.getheader("Accept-Ranges"), "bytes")
+        # A throwaway file stands in for audio: the repository ships no recordings of its own.
+        audio_dir = os.path.join(server.DIRECTORY, "audio")
+        made_dir = not os.path.isdir(audio_dir)
+        os.makedirs(audio_dir, exist_ok=True)
+        probe = os.path.join(audio_dir, "range-test.webm")
+        with open(probe, "wb") as f:
+            f.write(bytes(range(256)) * 8)
+        try:
+            r, body = self.raw_headers("/audio/range-test.webm", {"Range": "bytes=0-99"})
+            self.assertEqual(r.status, 206)
+            self.assertEqual(len(body), 100)
+            self.assertTrue(r.getheader("Content-Range").startswith("bytes 0-99/"))
+            self.assertEqual(r.getheader("Accept-Ranges"), "bytes")
+            r, body = self.raw_headers("/audio/range-test.webm", {"Range": "bytes=-10"})
+            self.assertEqual((r.status, len(body)), (206, 10))
+            r, _ = self.raw_headers("/audio/range-test.webm", {"Range": "bytes=999999999-"})
+            self.assertEqual(r.status, 416)
+            r, body = self.raw_headers("/audio/range-test.webm")
+            self.assertEqual(r.status, 200)
+            self.assertEqual(r.getheader("Accept-Ranges"), "bytes")
+        finally:
+            os.remove(probe)
+            if made_dir:
+                os.rmdir(audio_dir)
 
     def test_cli_honours_db(self):
         db = os.path.join(self.tmp.name, "cli.db")
