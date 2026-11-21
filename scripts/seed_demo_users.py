@@ -37,6 +37,7 @@ NAMES = [
     "Gurpreet Sandhu", "Harpreet Kaur", "Aryan Bose", "Ishita Das", "Rajat Sen", "Madhuri Kelkar",
     "Tushar Pawar", "Bhavna Solanki", "Yogesh Naik", "Sakshi Rawat", "Chirag Shah", "Komal Trivedi",
     "Naveen Reddy", "Jyoti Mishra", "Parth Vyas", "Rekha Nayak", "Suresh Pillai",
+    "Nandini Hegde", "Pratik Jadhav", "Sudipta Roy", "Ritvik Bhatia", "Shalini Iyengar", "Bhavesh Patel", "Aman Chopra", "Dhruv Nanda", "Esha Bhattacharya", "Gargi Sengupta", "Hitesh Parmar", "Ira Mukhopadhyay", "Jatin Oberoi", "Kriti Saini", "Lavanya Murthy", "Mahesh Gowda", "Nikita Dey", "Omkar Deshpande", "Pooja Iyer", "Qasim Ansari", "Rakesh Yadav", "Sanya Kaul", "Tanmay Joshi", "Uday Shetty", "Vaishnavi Rao", "Waseem Khan", "Yamini Reddy", "Zoya Siddiqui", "Abhinav Tripathi", "Bharti Lakra", "Chetan Hooda", "Deeksha Pillai",
 ]
 # the app's own feeling ids; the first ones are listed twice so they are chosen more often
 TOPICS = ["anxiety", "anxiety", "anxiety", "overthinking", "overthinking", "overthinking", "burnout", "burnout",
