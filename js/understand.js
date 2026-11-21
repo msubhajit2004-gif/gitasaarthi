@@ -15,7 +15,7 @@
     "this that with about from by as just very really too much so feel feeling felt like im ive do does did have has had " +
     "can what whats who how why when where which will would should could you your we our they them he she his her " +
     "than then there here some any all get got going go also still always keep bit lot more " +
-    "time times while today tell day days thing things make want need know please yes yeah okay ok").split(" "));
+    "dont cant time times while today tell day days thing things make want need know please yes yeah okay ok").split(" "));
   const NEG = new Set(["not", "never", "no", "dont", "cant", "cannot", "isnt", "arent", "wasnt", "aint", "without", "nahi", "nahin", "mat"]);
 
   function normalize(text) {
@@ -122,6 +122,8 @@
     "comparing": ["jealousy", "imposter"], "compare": ["jealousy", "imposter"], "everyone else": ["jealousy", "imposter"],
     "instagram": ["jealousy"], "jalan": ["jealousy"], "jalna": ["jealousy"], "behind": ["jealousy", "fear_of_failure"], "better than me": ["jealousy", "imposter"],
     // self-doubt
+    "useless": ["depression", "imposter"], "good for nothing": ["depression", "imposter"], "burden": ["depression", "guilt"],
+    "dont know what to do": ["overthinking", "purpose"], "no idea what to do": ["overthinking", "purpose"],
     "not enough": ["imposter", "perfectionism"], "dont deserve": ["imposter", "depression"], "deserve": ["imposter"], "cheating my way": ["imposter"],
     "found out": ["imposter"], "self doubt": ["imposter"], "doubt myself": ["imposter"],
     // decisions
