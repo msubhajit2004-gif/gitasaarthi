@@ -16,9 +16,12 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// BROWSER=chromium (default) | firefox | webkit picks the engine; webkit is the engine behind Safari.
 let chromium;
 try {
-  ({ chromium } = await import("playwright"));
+  const pw = await import("playwright");
+  chromium = pw[process.env.BROWSER || "chromium"];
+  if (!chromium) throw new Error("unknown BROWSER");
 } catch (e) {
   console.error("FAIL  playwright is not installed. Run: npm i -D playwright && npx playwright install chromium");
   process.exit(1);
@@ -61,14 +64,17 @@ function watch(page, tag) {
   page.on("console", (m) => {
     if (m.type() !== "error") return;
     const t = m.text(), u = m.location().url || "";
-    if (/favicon/i.test(t + u) || /Transition was aborted/i.test(t)) return;
+    if (/favicon/i.test(t + u) || /Transition was aborted|Navigated away from page/i.test(t)) return;
+    // Safari's engine reports a save it cancelled by navigating away; the unsaved item is retried on the next page.
+    if (/Fetch API cannot load .*\/api\/me\/data.* due to access control checks/.test(t)) return;
     // The pages ask /api/me whether you are still signed in; 401 is the right answer after sign-out or delete.
     if (/status of 401/.test(t) && /\/api\/me$/.test(u)) return;
     consoleErrors.push(`[${tag}] ${t}${u ? " <- " + u : ""}`);
   });
   page.on("pageerror", (e) => {
-    if (/Transition was aborted/i.test(String(e.message))) return;
-    consoleErrors.push(`[${tag}] pageerror: ${e.message}`);
+    if (/Transition was aborted|Navigated away from page/i.test(String(e.message))) return;
+    if (/Fetch API cannot load .*\/api\/me\/data.* due to access control checks/.test(String(e.message))) return;
+    consoleErrors.push(`[${tag}] pageerror: ${e.message}${e.stack ? " @ " + String(e.stack).split("\n").slice(0, 2).join(" | ") : ""}`);
   });
   page.on("dialog", (d) => d.accept().catch(() => {}));
 }

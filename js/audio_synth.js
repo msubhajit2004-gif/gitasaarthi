@@ -28,10 +28,13 @@ class AmbientAudioEngine {
     this.trackFailed = false;
   }
 
+  // Returns true when sound can be made. Some browsers and devices have no Web Audio at all; the page must
+  // still start, so this reports it instead of throwing.
   initContext() {
     if (!this.audioCtx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      this.audioCtx = new AudioContext();
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) { this.unsupported = true; return false; }
+      try { this.audioCtx = new Ctx(); } catch (e) { this.unsupported = true; return false; }
 
       // Master Gain
       this.masterGain = this.audioCtx.createGain();
@@ -49,12 +52,13 @@ class AmbientAudioEngine {
     if (this.audioCtx.state === "suspended") {
       this.audioCtx.resume();
     }
+    return true;
   }
 
   // Synthesize Tanpura Drone Strings (Sa - Pa - Sa - Sa fundamental drone)
   startDrone() {
     this.stopDrone();
-    this.initContext();
+    if (!this.initContext()) return;
 
     const t = this.audioCtx.currentTime;
     const sa = this.baseFreq;
@@ -254,7 +258,7 @@ class AmbientAudioEngine {
   }
 
   play() {
-    this.initContext();
+    if (!this.initContext()) { this.isPlaying = false; return; }
     this.isPlaying = true;
     if (this.trackUrl && !this.trackFailed) this.playTrack();
     else this.startDrone();
