@@ -209,21 +209,33 @@ document.addEventListener("DOMContentLoaded", () => {
     markCurrentFeeling(turn);
 
     showThinkingIndicator();
-    const useGemini = window.geminiService && window.geminiService.hasValidKey() && input.text &&
-      (turn.kind === "phase1" || turn.kind === "phase2");
+    // Gemini is asked only for the feeling flow (phase 1 and 2) and for short conversational answers. It is skipped
+    // while the breaker is cooling down, so a failing key does not slow every reply.
+    const gem = window.geminiService;
+    const canAsk = !!(gem && input.text && gem.isAvailable());
+    const geminiJob = !canAsk ? null
+      : (turn.kind === "phase1" || turn.kind === "phase2") ? "counsel"
+      : (turn.kind === "smalltalk" || turn.kind === "answer") ? "answer" : null;
     let note = "";
-    if (useGemini) {
+    if (geminiJob) {
       try {
-        const phase = turn.kind === "phase1" ? 1 : 2;
-        const resp = await window.geminiService.generateCounsel(input.text, state.history.slice(0, -1), phase);
-        removeThinkingIndicator();
-        if (phase === 1) renderKrishnaPhase1FromData(resp);
-        else renderKrishnaPhase2FromData(Object.assign({}, resp, { intro: turn.payload.intro }));
+        if (geminiJob === "counsel") {
+          const phase = turn.kind === "phase1" ? 1 : 2;
+          const resp = await gem.generateCounsel(input.text, state.history.slice(0, -1), phase);
+          removeThinkingIndicator();
+          if (phase === 1) renderKrishnaPhase1FromData(resp);
+          else renderKrishnaPhase2FromData(Object.assign({}, resp, { intro: turn.payload.intro }));
+        } else {
+          // the verse, if any, comes from the library (the engine checked it), never from the model
+          const text = await gem.generateAnswer(input.text, state.history.slice(0, -1));
+          removeThinkingIndicator();
+          renderPlainReply(text, turn.payload.verse || null, "");
+        }
         announceTurn(turn);
         return;
       } catch (err) {
-        console.warn("Gemini did not answer; using the offline verses.", err);
-        note = "Gemini didn't answer, so this reply is from the offline verses.";
+        console.warn("Gemini did not answer; using the offline library.", err);
+        note = fallbackNote();
       }
     }
     await new Promise(r => setTimeout(r, 550));
@@ -235,8 +247,29 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (turn.kind === "followup") renderFollowup(p);
     else if (turn.kind === "clarify") renderClarify(p);
     else if (turn.kind === "close") renderClose(p);
+    else if (turn.kind === "smalltalk" || turn.kind === "redirect") renderPlainReply(p.message, null, note);
+    else if (turn.kind === "answer") renderPlainReply(p.message, p.verse, note);
     else if (turn.kind === "aside") { renderAside(p, turn.action); return; }   // a request, not a feeling: nothing is recorded
     announceTurn(turn);
+  }
+
+  // One quiet note per failure episode (js/gemini_service.js decides when), never one per reply.
+  function fallbackNote() {
+    try {
+      return window.geminiService && window.geminiService.consumeFallbackNotice()
+        ? "Gemini is unavailable right now, so this reply comes from the offline library." : "";
+    } catch (e) { return ""; }
+  }
+
+  // Small talk, redirects and short answers: a plain Krishna line, with a library verse when the engine attached one.
+  function renderPlainReply(message, verse, note) {
+    const quote = verse
+      ? `<blockquote class="verse-quote"><p class="verse-sanskrit">${escapeHtml(verse.sanskrit)}</p>` +
+        `<p>${escapeHtml(verse.translation)}</p><cite>${escapeHtml(verse.reference)}</cite></blockquote>` : "";
+    const noteHtml = note ? `<p class="krishna-note">${escapeHtml(note)}</p>` : "";
+    const { row } = krishnaCard(`<div class="krishna-ack-text">${escapeHtml(message)}</div>${quote}${noteHtml}`, "Krishna");
+    wireReactions(row);
+    state.history.push({ sender: "krishna", phase: 0, content: { message, verse }, timestamp: new Date() });
   }
 
   // The feeling this conversation is about: mark its button, and remember it for "Pick up where you left off".
