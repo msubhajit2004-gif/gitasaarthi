@@ -52,6 +52,14 @@ The server opens your browser. It listens on port 8000 and moves to 8001, 8002 a
 
 The account must already exist for `--make-admin`. Admins use `admin.html`.
 
+## Demo copy with made-up people
+
+To see the admin panel with plenty of data, without touching real accounts:
+
+    python scripts/demo.py
+
+This makes 50 demo people with Indian names, an admin (`admin@example.com`), and made-up conversations, streaks, mood check-ins and safety alerts in `demo-data/` (not committed), then starts the app on http://127.0.0.1:8010. Every demo account uses the password `demo-password-2026`. Use `--reset` to make the data again and `--seed-only` to make it without starting the app. The script refuses to run against a hosted database.
+
 ## Backup and restore
 
     python server.py --backup backup.db

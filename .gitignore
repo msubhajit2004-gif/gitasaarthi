@@ -22,3 +22,5 @@ graphify-out/
 .env*
 
 *.stackdump
+
+demo-data/
