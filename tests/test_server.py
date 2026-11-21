@@ -614,7 +614,15 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(r.status, 200)
             self.assertEqual(r.getheader("Accept-Ranges"), "bytes")
         finally:
-            os.remove(probe)
+            # On Windows the server thread can still hold the file for a moment after the last response
+            for attempt in range(40):
+                try:
+                    os.remove(probe)
+                    break
+                except PermissionError:
+                    if attempt == 39:
+                        raise
+                    time.sleep(0.05)
             if made_dir:
                 os.rmdir(audio_dir)
 
